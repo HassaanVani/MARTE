@@ -3,7 +3,10 @@
 import numpy as np
 from numpy.typing import NDArray
 
+from marte.constants import SPEED_OF_LIGHT
 from marte.trajectory import Worldline
+
+c = SPEED_OF_LIGHT
 
 
 def minkowski_interval(
@@ -24,7 +27,10 @@ def minkowski_interval(
     Returns:
         The spacetime interval ds² (m²). Negative for timelike separation.
     """
-    raise NotImplementedError
+    d = np.asarray(event2, dtype=np.float64) - np.asarray(event1, dtype=np.float64)
+    dt = d[0]
+    dx = d[1:]
+    return float(-c**2 * dt**2 + np.dot(dx, dx))
 
 
 def is_timelike(interval: float) -> bool:
@@ -36,7 +42,7 @@ def is_timelike(interval: float) -> bool:
     Returns:
         True if the interval is timelike.
     """
-    raise NotImplementedError
+    return interval < 0
 
 
 def is_causal(worldline: Worldline) -> bool:
@@ -51,4 +57,16 @@ def is_causal(worldline: Worldline) -> bool:
     Returns:
         True if the worldline is causal.
     """
-    raise NotImplementedError
+    for i in range(len(worldline.coord_times) - 1):
+        event1 = np.array([
+            worldline.coord_times[i],
+            *worldline.positions[i],
+        ])
+        event2 = np.array([
+            worldline.coord_times[i + 1],
+            *worldline.positions[i + 1],
+        ])
+        interval = minkowski_interval(event1, event2)
+        if interval > 0:  # spacelike → superluminal
+            return False
+    return True

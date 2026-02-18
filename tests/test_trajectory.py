@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_worldline_has_correct_departure_time():
     from marte.trajectory import compute_ship_worldline
 
@@ -18,7 +17,6 @@ def test_worldline_has_correct_departure_time():
     assert wl.coord_times[0] == pytest.approx(0.0)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_worldline_has_correct_arrival_time():
     from marte.trajectory import compute_ship_worldline
 
@@ -32,7 +30,6 @@ def test_worldline_has_correct_arrival_time():
     assert wl.coord_times[-1] == pytest.approx(1e7)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_worldline_proper_time_monotonic():
     from marte.trajectory import compute_ship_worldline
 
@@ -47,7 +44,6 @@ def test_worldline_proper_time_monotonic():
     assert np.all(diffs >= 0)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_worldline_proper_time_less_than_coord_time():
     from marte.trajectory import compute_ship_worldline
 

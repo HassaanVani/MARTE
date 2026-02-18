@@ -6,7 +6,6 @@ import pytest
 from marte.constants import SPEED_OF_LIGHT
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_minkowski_interval_same_event():
     from marte.spacetime import minkowski_interval
 
@@ -14,7 +13,6 @@ def test_minkowski_interval_same_event():
     assert minkowski_interval(event, event) == pytest.approx(0.0)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_minkowski_interval_timelike():
     from marte.spacetime import is_timelike, minkowski_interval
 
@@ -26,7 +24,6 @@ def test_minkowski_interval_timelike():
     assert is_timelike(interval)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_minkowski_interval_spacelike():
     from marte.spacetime import is_timelike, minkowski_interval
 
@@ -38,7 +35,6 @@ def test_minkowski_interval_spacelike():
     assert not is_timelike(interval)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_minkowski_interval_null():
     from marte.spacetime import minkowski_interval
 

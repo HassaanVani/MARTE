@@ -3,6 +3,11 @@
 import numpy as np
 from numpy.typing import NDArray
 
+from marte.constants import EARTH_ORBITAL_ANGULAR_VEL, EARTH_ORBITAL_RADIUS
+
+R = EARTH_ORBITAL_RADIUS
+omega = EARTH_ORBITAL_ANGULAR_VEL
+
 
 def earth_position(coord_time: float) -> NDArray[np.float64]:
     """Compute Earth's position vector at a given coordinate time.
@@ -16,7 +21,8 @@ def earth_position(coord_time: float) -> NDArray[np.float64]:
     Returns:
         Position vector [x, y, z] in meters, shape (3,).
     """
-    raise NotImplementedError
+    angle = omega * coord_time
+    return np.array([R * np.cos(angle), R * np.sin(angle), 0.0])
 
 
 def earth_velocity(coord_time: float) -> NDArray[np.float64]:
@@ -31,4 +37,6 @@ def earth_velocity(coord_time: float) -> NDArray[np.float64]:
     Returns:
         Velocity vector [vx, vy, vz] in m/s, shape (3,).
     """
-    raise NotImplementedError
+    angle = omega * coord_time
+    speed = R * omega
+    return np.array([-speed * np.sin(angle), speed * np.cos(angle), 0.0])

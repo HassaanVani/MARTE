@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_earth_position_at_t_zero():
     from marte.constants import EARTH_ORBITAL_RADIUS
     from marte.orbital import earth_position
@@ -16,7 +15,6 @@ def test_earth_position_at_t_zero():
     assert pos[2] == pytest.approx(0.0)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_earth_position_quarter_orbit():
     from marte.constants import EARTH_ORBITAL_RADIUS, YEAR
     from marte.orbital import earth_position
@@ -26,7 +24,6 @@ def test_earth_position_quarter_orbit():
     assert pos[1] == pytest.approx(EARTH_ORBITAL_RADIUS, rel=1e-6)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_earth_position_is_on_orbital_radius():
     from marte.constants import EARTH_ORBITAL_RADIUS, YEAR
     from marte.orbital import earth_position
@@ -37,7 +34,6 @@ def test_earth_position_is_on_orbital_radius():
         assert r == pytest.approx(EARTH_ORBITAL_RADIUS, rel=1e-9)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_earth_velocity_perpendicular_to_position():
     from marte.constants import YEAR
     from marte.orbital import earth_position, earth_velocity
@@ -49,7 +45,6 @@ def test_earth_velocity_perpendicular_to_position():
         assert dot == pytest.approx(0.0, abs=1e-3)
 
 
-@pytest.mark.skip(reason="not yet implemented")
 def test_earth_velocity_magnitude():
     from marte.constants import EARTH_ORBITAL_ANGULAR_VEL, EARTH_ORBITAL_RADIUS
     from marte.orbital import earth_velocity

@@ -3,7 +3,10 @@
 import numpy as np
 from numpy.typing import NDArray
 
+from marte.constants import SPEED_OF_LIGHT
 from marte.trajectory import Worldline
+
+c = SPEED_OF_LIGHT
 
 
 def check_subluminal(worldline: Worldline) -> bool:
@@ -15,7 +18,15 @@ def check_subluminal(worldline: Worldline) -> bool:
     Returns:
         True if all velocities are subluminal.
     """
-    raise NotImplementedError
+    for i in range(len(worldline.coord_times) - 1):
+        dt = worldline.coord_times[i + 1] - worldline.coord_times[i]
+        if dt <= 0:
+            return False
+        dr = worldline.positions[i + 1] - worldline.positions[i]
+        speed = float(np.linalg.norm(dr)) / dt
+        if speed >= c:
+            return False
+    return True
 
 
 def check_proper_time_consistency(
@@ -33,7 +44,8 @@ def check_proper_time_consistency(
     Returns:
         True if |τ_computed - τ_expected| / τ_expected < rtol.
     """
-    raise NotImplementedError
+    computed_tau = worldline.proper_times[-1]
+    return abs(computed_tau - expected_tau) / expected_tau < rtol
 
 
 def check_arrival_intersection(
@@ -51,4 +63,6 @@ def check_arrival_intersection(
     Returns:
         True if |r_ship(t_f) - r_Earth(t_f)| < atol.
     """
-    raise NotImplementedError
+    ship_final = worldline.positions[-1]
+    distance = float(np.linalg.norm(ship_final - earth_pos_at_tf))
+    return distance < atol
