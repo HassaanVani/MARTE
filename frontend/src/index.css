@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #09090b;
+  --color-surface: #111113;
+  --color-border: #27272a;
+  --color-text: #e4e4e7;
+  --color-text-dim: #71717a;
+  --color-amber: #f59e0b;
+  --color-cyan: #06b6d4;
+  --color-red: #ef4444;
+  --color-green: #22c55e;
+  --color-blue: #3b82f6;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+input[type="number"] {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+input[type="number"]:focus {
+  outline: 1px solid var(--color-amber);
+  border-color: var(--color-amber);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-amber);
+}
+
+/* Plotly overrides for dark theme */
+.js-plotly-plot .plotly .modebar {
+  background: transparent !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn path {
+  fill: var(--color-text-dim) !important;
+}
