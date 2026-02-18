@@ -36,3 +36,7 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
