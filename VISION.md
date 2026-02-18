@@ -242,13 +242,72 @@ The visualization layer reads computed physics data and renders it. It never com
 
 Each visualization layer is a **consumer** of the physics engine output. Swapping one for another requires zero changes to the physics code.
 
+### 5.4 The SpacetimeState Object
+
+The physics engine does not return a list of coordinates. It returns a **`SpacetimeState`** — a self-contained snapshot of the complete physical state at a single instant. This object is the commodity that every visualization layer consumes.
+
+```json
+{
+  "coordinate_time": 1740528000.0,
+  "proper_time_elapsed": 31536000.0,
+  "position_ssbif": [1.49e11, 0, 0],
+  "velocity_beta": 0.866,
+  "lorentz_factor": 2.0,
+  "proper_acceleration": 9.81,
+  "aberration_matrix": [["..."]],
+  "doppler_factor_forward": 3.732,
+  "doppler_factor_aft": 0.268,
+  "energy_k_joules": 1.2e20,
+  "earth_position_ssbif": [1.48e11, 2.1e10, 0],
+  "earth_light_delay_seconds": 498.0,
+  "earth_apparent_position": [1.47e11, 1.9e10, 0]
+}
+```
+
+This object can drive a scientific Matplotlib plot, a Three.js Minkowski diagram, a WebGL cockpit HUD, or a Unity VR bridge — and the physics is identical in every case. The `SpacetimeState` is the contract between the engine and all downstream consumers.
+
 ---
 
-## 6. Visualization Specification
+## 6. The Dual-Interface Architecture
 
-Visualizations are not decorative. Every visual element corresponds to a physical quantity.
+MARTE has two faces. They share the same physics engine and the same `SpacetimeState` stream. They show radically different things.
 
-### 6.1 Spatial View (3D Orbital Plane)
+### 6.1 The Observer Interface — "Mission Control"
+
+This is the scientific ground truth. It treats the traveler as a point-particle worldline viewed from outside spacetime. It is the interface for **planning, analysis, and verification**.
+
+**Design aesthetic:**
+- High-density vector graphics, dark mode
+- Amber or NASA-blue accents
+- Monospace fonts (Fira Code / JetBrains Mono)
+- No decoration that doesn't encode data
+- Inspired by mission control telemetry, not consumer dashboards
+
+**Key elements:**
+
+#### The Spacetime Loom
+
+A dynamic Minkowski diagram where the user can drag **Event Pins**. Drag the arrival event further into the future and watch the ship's worldline slope change in real-time. Drag the proper time constraint and watch the solver find a new velocity. The diagram is not a static plot — it is a **direct manipulation interface** for the trajectory solver.
+
+#### The Residual Monitor
+
+A small terminal window showing the SciPy solver's convergence in real-time: iteration count, residual norm, Jacobian condition number. This is not debug output — it is a deliberate design choice. Users see the software **solving** the relativistic constraints. It reinforces that MARTE is computing something hard, not animating something prerecorded.
+
+#### The Energy Tax
+
+A prominent readout showing $E_k = (\gamma - 1)mc^2$. As $\beta \to 1$, the numbers turn red and begin scaling against real-world references:
+
+| $\beta$ | $\gamma$ | Energy | Scale |
+|---------|----------|--------|-------|
+| 0.1 | 1.005 | $4.5 \times 10^{17}$ J | ~10 Tsar Bomba |
+| 0.5 | 1.155 | $1.4 \times 10^{19}$ J | ~1% global annual energy |
+| 0.866 | 2.0 | $9.0 \times 10^{19}$ J | ~15% global annual energy |
+| 0.99 | 7.089 | $5.5 \times 10^{20}$ J | ~100% global annual energy |
+| 0.999 | 22.37 | $1.9 \times 10^{21}$ J | ~300% global annual energy |
+
+The Energy Tax is not a warning. It is a **fact**. The user must understand what relativistic travel costs.
+
+#### Spatial View (3D Orbital Plane)
 
 - Earth's orbit rendered as a closed curve (or helical if showing time axis)
 - Ship trajectory rendered as a piecewise path from departure to arrival
@@ -257,38 +316,47 @@ Visualizations are not decorative. Every visual element corresponds to a physica
 - Turnaround point marked
 - Arrival intersection verified visually
 
-### 6.2 Minkowski Diagram (Spacetime)
-
-The defining visualization of MARTE.
-
-- Vertical axis: coordinate time $t$
-- Horizontal axis: spatial displacement along trajectory direction
-- Earth worldline: sinusoidal or helical (projected)
-- Ship worldline: piecewise straight segments (v1) or curved (v2+)
-- Light cones rendered at key events
-- Proper time ticks along ship worldline (unevenly spaced in coordinate time — this is the visual signature of time dilation)
-
-### 6.3 Proper Time vs. Coordinate Time
+#### Proper Time vs. Coordinate Time
 
 - Side-by-side clocks showing traveler time and Earth-frame time
 - Accumulation curves: $\tau(t)$ plotted against $t$
 - Differential time dilation rate: $d\tau/dt = \gamma^{-1}$
 
-### 6.4 Energy Budget
+---
 
-- Required kinetic energy: $E_k = (\gamma - 1)mc^2$
-- Comparison to real-world energy scales (e.g., annual global energy consumption)
-- Energy as a function of $v/c$ — showing the dramatic nonlinearity near $c$
+### 6.2 The Kinetic Interface — "The Pilot"
 
-### 6.5 Navigation Console (Phase 2+)
+This moves the camera **onto the ship**. It uses the physics engine to compute what a human observer (or ship sensor array) would actually perceive at relativistic velocity. This is not a creative liberty — it is a direct consequence of the `SpacetimeState` fields for aberration and Doppler shift.
 
-The long-term UI should feel like a **real instrument panel**, not a web dashboard.
+**Design aesthetic:**
+- Diegetic UI — the interface exists inside the simulation world
+- 3D cockpit or heads-up display overlaying a computed starfield
+- No elements that break the frame of reference
 
-Design language:
-- Dense, information-rich displays
-- Real-time readouts of $v$, $\gamma$, $\tau$, $t$, position, heading
-- No decoration that doesn't encode data
-- Inspired by mission control telemetry interfaces, not consumer software
+**Key elements:**
+
+#### The Time-Lag Ghost
+
+A projected hologram of Earth in the HUD. Because of finite light-travel time, the pilot sees Earth where it **was** — but a "Physics Ghost" (computed from the `SpacetimeState`) shows where Earth **actually is** in the SSBIF frame. To return home, you must aim for the Ghost, not the image.
+
+This is not a game mechanic. It is the physical reality of navigating at relativistic speed: your eyes lie. The `earth_apparent_position` in the state object is always behind the `earth_position_ssbif`. The delta is $c \times \text{light\_delay}$.
+
+#### The Relativistic Throttle
+
+Increasing thrust does not just increase speed. It changes:
+
+- **Star color** — Doppler shift compresses incoming wavelengths forward and stretches them aft. Both are computed directly from $\beta$ and the aberration matrix.
+- **Field of view** — Relativistic aberration compresses the star field forward. At high $\beta$, stars behind the ship migrate toward the forward hemisphere.
+
+Visual consequence at $\beta \to 1$:
+- The stars behind vanish into a **red void** (infinite redshift, below visible band)
+- The stars ahead crush into a **blue blinding point** (extreme blueshift, aberration collapse)
+
+This is special relativity rendered honestly. No artistic license.
+
+#### The Waiting Mechanic
+
+To convey the reality of relativistic travel, the Kinetic interface can offer a **Time-Skip** mode: set thrust to $1g$, and the UI shows the **Subjective Calendar** (proper time) ticking alongside the **Home Calendar** (coordinate time) as the ship spends weeks or months accelerating to cruise velocity. The divergence between the two calendars is the visceral experience of time dilation.
 
 ---
 
@@ -423,6 +491,19 @@ Deliverables:
 - [ ] Optimal trajectory computation (minimize energy, minimize proper time, etc.)
 
 **Exit criteria:** MARTE functions as a self-contained mission planning tool.
+
+---
+
+### The Interface Fork
+
+Starting from Phase 2, the Observer and Kinetic interfaces evolve in parallel. Both consume the same `SpacetimeState` stream. Their development is coupled by physics, not by UI.
+
+| Phase | **Observer — Mission Control** | **Kinetic — The Pilot** |
+|-------|-------------------------------|-------------------------|
+| **Phase 2** | Web-based 2D Plotly/Matplotlib dashboards. Spacetime Loom (static). Residual Monitor. | Basic Three.js starfield with Doppler-shift shaders. |
+| **Phase 3** | Integration of hyperbolic worldlines ($1g$ paths). Drag-to-solve Spacetime Loom. Energy Tax readout. | "Manual Mode" — user controls thrust vector; engine computes the resulting worldline and visual effects in real-time. |
+| **Phase 4** | **The Intercept Solver** — auto-calculate the exact vector and turnaround time to hit Earth's future ephemeris position. | **The Nav-Computer** — a HUD element that tells the pilot "turn around NOW" to make the return window. Time-Lag Ghost computed from real ephemeris. |
+| **Phase 5** | Multi-mission planning. Parameter sweeps. Fleet sync (multiple ships, different departure times). | VR support — "standing on the bridge" while the universe warps around you. Full aberration + Doppler starfield. |
 
 ---
 
