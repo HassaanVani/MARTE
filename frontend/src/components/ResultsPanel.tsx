@@ -42,9 +42,20 @@ export function ResultsPanel({ response, loading }: Props) {
             <span className="text-xs">
               {sol.converged ? "CONVERGED" : "NOT CONVERGED"}
             </span>
+            {sol.trajectory_model && (
+              <span className="text-text-dim text-[10px] uppercase">
+                {sol.trajectory_model === "constant_acceleration" ? "v2" : "v1"}
+              </span>
+            )}
           </div>
           <Row label="β" value={sol.beta.toFixed(6)} />
           <Row label="γ" value={sol.gamma.toFixed(6)} />
+          {sol.peak_beta != null && (
+            <Row label="β_peak" value={sol.peak_beta.toFixed(6)} />
+          )}
+          {sol.peak_gamma != null && (
+            <Row label="γ_peak" value={sol.peak_gamma.toFixed(6)} />
+          )}
           <Row label="v" value={formatSci(sol.speed_m_s)} unit="m/s" />
           <Row
             label="t_turn"

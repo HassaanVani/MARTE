@@ -119,8 +119,9 @@ def test_numeric_accuracy():
     assert abs(sol["turnaround_time_years"] - 1.0) < 0.001
 
 
-def test_worldline_has_three_waypoints():
-    resp = client.post("/api/solve", json={})
+def test_worldline_has_three_waypoints_v1():
+    """v1 (constant velocity) worldline has exactly 3 waypoints."""
+    resp = client.post("/api/solve", json={"trajectory_model": "constant_velocity"})
     data = resp.json()
     wl = data["worldline"]
     assert len(wl["coord_times_s"]) == 3
@@ -135,3 +136,75 @@ def test_earth_trajectory_sampling():
     assert len(earth["trajectory_times_years"]) == 100
     assert len(earth["trajectory_positions_au"]) == 100
     assert earth["orbit_radius_au"] == 1.0
+
+
+# --- v2 API tests ---
+
+
+def test_solve_v2_basic():
+    """v2 (constant acceleration) endpoint returns valid response."""
+    resp = client.post(
+        "/api/solve",
+        json={
+            "t0_years": 0.0,
+            "tf_years": 5.0,
+            "proper_time_years": 4.0,
+            "trajectory_model": "constant_acceleration",
+            "proper_acceleration_g": 1.0,
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["error"] is None
+    assert data["solution"] is not None
+    assert data["solution"]["converged"] is True
+    assert data["solution"]["trajectory_model"] == "constant_acceleration"
+
+
+def test_solve_v2_has_extended_fields():
+    """v2 response includes peak_beta, peak_gamma, phase_boundaries."""
+    resp = client.post(
+        "/api/solve",
+        json={
+            "t0_years": 0.0,
+            "tf_years": 5.0,
+            "proper_time_years": 4.0,
+            "trajectory_model": "constant_acceleration",
+            "proper_acceleration_g": 1.0,
+        },
+    )
+    data = resp.json()
+    sol = data["solution"]
+    assert sol["peak_beta"] is not None
+    assert sol["peak_gamma"] is not None
+    assert sol["proper_acceleration_m_s2"] is not None
+    assert sol["phase_boundaries_years"] is not None
+    assert len(sol["phase_boundaries_years"]) == 5
+
+
+def test_solve_v2_worldline_many_points():
+    """v2 worldline has >> 3 points."""
+    resp = client.post(
+        "/api/solve",
+        json={
+            "t0_years": 0.0,
+            "tf_years": 5.0,
+            "proper_time_years": 4.0,
+            "trajectory_model": "constant_acceleration",
+        },
+    )
+    data = resp.json()
+    wl = data["worldline"]
+    assert len(wl["coord_times_s"]) > 100
+    assert wl["beta_profile"] is not None
+    assert len(wl["beta_profile"]) == len(wl["coord_times_s"])
+
+
+def test_solve_v1_backward_compat():
+    """Default request still uses v1 model."""
+    resp = client.post("/api/solve", json={})
+    data = resp.json()
+    sol = data["solution"]
+    assert sol["trajectory_model"] == "constant_velocity"
+    assert sol["peak_beta"] is None
+    assert sol["peak_gamma"] is None

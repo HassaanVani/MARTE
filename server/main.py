@@ -4,10 +4,10 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from marte.constants import AU, SPEED_OF_LIGHT, YEAR
+from marte.constants import AU, SPEED_OF_LIGHT, STANDARD_GRAVITY, YEAR
 from marte.orbital import earth_position
 from marte.relativity import lorentz_factor
-from marte.solver import solve_trajectory
+from marte.solver import TrajectoryModel, solve_trajectory
 
 from .schemas import (
     EarthData,
@@ -46,8 +46,19 @@ def solve(req: SolveRequest) -> SolveResponse:
     tf_s = req.tf_years * YEAR
     tau_s = req.proper_time_years * YEAR
 
+    # Model selection
+    model = TrajectoryModel.CONSTANT_VELOCITY
+    proper_accel = None
+    if req.trajectory_model == "constant_acceleration":
+        model = TrajectoryModel.CONSTANT_ACCELERATION
+        proper_accel = (req.proper_acceleration_g or 1.0) * STANDARD_GRAVITY
+
     try:
-        sol = solve_trajectory(t0_s, tf_s, tau_s, req.mass_kg)
+        sol = solve_trajectory(
+            t0_s, tf_s, tau_s, req.mass_kg,
+            model=model,
+            proper_acceleration=proper_accel,
+        )
     except ValueError as e:
         return SolveResponse(inputs=inputs, error=str(e))
 
@@ -77,6 +88,15 @@ def solve(req: SolveRequest) -> SolveResponse:
         arrival_relative_velocity_m_s=sol.arrival_relative_velocity.tolist(),
         arrival_relative_speed_m_s=arrival_rel_speed,
         arrival_relative_speed_beta=arrival_rel_speed / SPEED_OF_LIGHT,
+        trajectory_model=sol.trajectory_model.value,
+        proper_acceleration_m_s2=sol.proper_acceleration,
+        peak_beta=sol.peak_beta,
+        peak_gamma=sol.peak_gamma,
+        phase_boundaries_years=(
+            [t / YEAR for t in sol.phase_boundaries]
+            if sol.phase_boundaries
+            else None
+        ),
     )
 
     worldline = WorldlineData(
@@ -86,6 +106,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         positions_au=positions_au,
         proper_times_s=wl.proper_times.tolist(),
         proper_times_years=(wl.proper_times / YEAR).tolist(),
+        beta_profile=sol.beta_profile if sol.beta_profile else None,
     )
 
     # Sample Earth trajectory

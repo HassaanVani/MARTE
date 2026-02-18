@@ -75,15 +75,15 @@ function Scene({ worldline, earth }: Props) {
   const shipPosAU = worldline.positions_au;
   const earthPosAU = earth.trajectory_positions_au;
 
-  const departure: [number, number, number] = [
-    shipPosAU[0]![0]!, shipPosAU[0]![1]!, shipPosAU[0]![2]!,
-  ];
-  const turnaround: [number, number, number] = [
-    shipPosAU[1]![0]!, shipPosAU[1]![1]!, shipPosAU[1]![2]!,
-  ];
-  const arrival: [number, number, number] = [
-    shipPosAU[2]![0]!, shipPosAU[2]![1]!, shipPosAU[2]![2]!,
-  ];
+  const len = shipPosAU.length;
+  const midIdx = Math.floor(len / 2);
+  const first = shipPosAU[0]!;
+  const mid = shipPosAU[midIdx]!;
+  const last = shipPosAU[len - 1]!;
+
+  const departure: [number, number, number] = [first[0]!, first[1]!, first[2]!];
+  const turnaround: [number, number, number] = [mid[0]!, mid[1]!, mid[2]!];
+  const arrival: [number, number, number] = [last[0]!, last[1]!, last[2]!];
 
   return (
     <>

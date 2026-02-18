@@ -1,6 +1,7 @@
-"""Analytical trajectory solver for piecewise constant-velocity model (v1)."""
+"""Trajectory solver — dispatches between v1 (constant velocity) and v2 (constant acceleration)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from math import acos, atan2, sqrt
 
 import numpy as np
@@ -22,21 +23,34 @@ from marte.validation import (
 c = SPEED_OF_LIGHT
 
 
+class TrajectoryModel(Enum):
+    """Trajectory model selection."""
+
+    CONSTANT_VELOCITY = "constant_velocity"
+    CONSTANT_ACCELERATION = "constant_acceleration"
+
+
 @dataclass
 class TrajectorySolution:
     """Result of the trajectory solver.
 
     Attributes:
         worldline: The computed ship worldline.
-        velocity_magnitude: Required speed as fraction of c (beta).
+        velocity_magnitude: Required speed as fraction of c (beta). For v2, this is the peak beta.
         direction_out: Outbound unit direction vector, shape (3,).
         direction_in: Inbound unit direction vector, shape (3,).
         turnaround_time: Turnaround coordinate time (s).
         total_proper_time: Total proper time experienced by traveler (s).
         converged: Whether the solver converged.
         residual: Norm of the constraint residual vector.
-        energy: Required kinetic energy per leg (J), for reference mass of 1000 kg.
+        energy: Required kinetic energy per leg (J).
         arrival_relative_velocity: Ship velocity relative to Earth at arrival (m/s), shape (3,).
+        trajectory_model: Which model produced this solution.
+        proper_acceleration: Proper acceleration (m/s²), None for v1.
+        peak_beta: Peak speed as fraction of c, None for v1.
+        peak_gamma: Peak Lorentz factor, None for v1.
+        phase_boundaries: Coordinate times at phase boundaries (s), None for v1.
+        beta_profile: β values at each worldline point, None for v1.
     """
 
     worldline: Worldline
@@ -49,6 +63,13 @@ class TrajectorySolution:
     residual: float
     energy: float
     arrival_relative_velocity: NDArray[np.float64]
+    # v2 fields (optional, None for v1)
+    trajectory_model: TrajectoryModel = TrajectoryModel.CONSTANT_VELOCITY
+    proper_acceleration: float | None = None
+    peak_beta: float | None = None
+    peak_gamma: float | None = None
+    phase_boundaries: list[float] = field(default_factory=list)
+    beta_profile: list[float] = field(default_factory=list)
 
 
 def solve_trajectory(
@@ -56,25 +77,39 @@ def solve_trajectory(
     tf: float,
     proper_time_desired: float,
     mass: float = 1000.0,
+    model: TrajectoryModel = TrajectoryModel.CONSTANT_VELOCITY,
+    proper_acceleration: float | None = None,
 ) -> TrajectorySolution:
     """Solve for the trajectory matching departure, arrival, and proper time constraints.
 
-    Analytical solver for the v1 piecewise constant-velocity model. Both legs
-    have the same speed β, determined directly from the proper time constraint:
-        β = √(1 - (τ / (tf - t0))²)
-
-    The outbound direction is determined by the law of cosines on the triangle
-    formed by departure position, turnaround position, and arrival position.
+    Dispatches to the appropriate solver based on the model parameter.
 
     Args:
         t0: Departure coordinate time (s).
         tf: Arrival coordinate time (s).
         proper_time_desired: Desired traveler proper time (s).
         mass: Ship rest mass in kg (default: 1000 kg).
+        model: Trajectory model to use.
+        proper_acceleration: Proper acceleration in m/s² (required for CONSTANT_ACCELERATION).
 
     Returns:
         A TrajectorySolution with the computed trajectory and solver diagnostics.
     """
+    if model == TrajectoryModel.CONSTANT_ACCELERATION:
+        from marte.solver_v2 import _solve_v2
+
+        return _solve_v2(t0, tf, proper_time_desired, mass, proper_acceleration)
+
+    return _solve_v1(t0, tf, proper_time_desired, mass)
+
+
+def _solve_v1(
+    t0: float,
+    tf: float,
+    proper_time_desired: float,
+    mass: float = 1000.0,
+) -> TrajectorySolution:
+    """Analytical solver for the v1 piecewise constant-velocity model."""
     delta_t = tf - t0
     tau = proper_time_desired
 

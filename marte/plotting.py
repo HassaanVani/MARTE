@@ -45,9 +45,10 @@ def plot_orbital_view(solution: TrajectorySolution) -> Figure:
     ship_y = wl.positions[:, 1] / AU
     ax.plot(ship_x, ship_y, "r-", linewidth=2, label="Ship trajectory")
 
-    # Markers
+    # Markers: dynamic indexing for variable-length worldlines
+    mid_idx = len(ship_x) // 2
     ax.plot(ship_x[0], ship_y[0], "go", markersize=10, label="Departure")
-    ax.plot(ship_x[1], ship_y[1], "rs", markersize=10, label="Turnaround")
+    ax.plot(ship_x[mid_idx], ship_y[mid_idx], "rs", markersize=10, label="Turnaround")
     ax.plot(ship_x[-1], ship_y[-1], "b^", markersize=10, label="Arrival")
 
     # Sun at origin

@@ -10,6 +10,14 @@ class SolveRequest(BaseModel):
     tf_years: float = Field(default=2.0, gt=0.0, description="Arrival time (years)")
     proper_time_years: float = Field(default=1.5, gt=0.0, description="Desired proper time (years)")
     mass_kg: float = Field(default=1000.0, gt=0.0, description="Ship rest mass (kg)")
+    trajectory_model: str = Field(
+        default="constant_velocity",
+        description="Trajectory model: 'constant_velocity' or 'constant_acceleration'",
+    )
+    proper_acceleration_g: float | None = Field(
+        default=None,
+        description="Proper acceleration in multiples of g (only for constant_acceleration model)",
+    )
 
 
 class SolveInputs(BaseModel):
@@ -35,6 +43,12 @@ class SolutionData(BaseModel):
     arrival_relative_velocity_m_s: list[float]
     arrival_relative_speed_m_s: float
     arrival_relative_speed_beta: float
+    # v2 fields (None for v1)
+    trajectory_model: str | None = None
+    proper_acceleration_m_s2: float | None = None
+    peak_beta: float | None = None
+    peak_gamma: float | None = None
+    phase_boundaries_years: list[float] | None = None
 
 
 class WorldlineData(BaseModel):
@@ -44,6 +58,7 @@ class WorldlineData(BaseModel):
     positions_au: list[list[float]]
     proper_times_s: list[float]
     proper_times_years: list[float]
+    beta_profile: list[float] | None = None
 
 
 class EarthData(BaseModel):
@@ -60,3 +75,4 @@ class SolveResponse(BaseModel):
     worldline: WorldlineData | None = None
     earth: EarthData | None = None
     error: str | None = None
+    solutions: list[SolutionData] | None = None

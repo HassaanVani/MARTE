@@ -53,11 +53,49 @@ export function ParameterPanel({ params, onChange }: Props) {
     onChange({ ...params, [key]: value });
   };
 
+  const isV2 = params.trajectory_model === "constant_acceleration";
+
   return (
     <div className="flex flex-col gap-3 p-4">
       <h2 className="text-amber text-xs font-bold tracking-widest uppercase">
         Parameters
       </h2>
+
+      {/* Model selector */}
+      <div className="flex flex-col gap-1">
+        <label className="text-text-dim text-xs">Model</label>
+        <select
+          value={params.trajectory_model}
+          onChange={(e) =>
+            onChange({
+              ...params,
+              trajectory_model: e.target.value,
+              proper_acceleration_g:
+                e.target.value === "constant_acceleration"
+                  ? params.proper_acceleration_g ?? 1.0
+                  : null,
+            })
+          }
+          className="bg-surface text-text border-border border px-2 py-1 text-xs"
+        >
+          <option value="constant_velocity">Constant Velocity (v1)</option>
+          <option value="constant_acceleration">Constant Acceleration (v2)</option>
+        </select>
+      </div>
+
+      {/* Acceleration slider (v2 only) */}
+      {isV2 && (
+        <ParamInput
+          label="Acceleration"
+          unit="g"
+          value={params.proper_acceleration_g ?? 1.0}
+          min={0.1}
+          max={10}
+          step={0.1}
+          onChange={(v) => onChange({ ...params, proper_acceleration_g: v })}
+        />
+      )}
+
       <ParamInput
         label="Departure"
         unit="yr"
@@ -72,7 +110,7 @@ export function ParameterPanel({ params, onChange }: Props) {
         unit="yr"
         value={params.tf_years}
         min={0.5}
-        max={10}
+        max={isV2 ? 20 : 10}
         step={0.1}
         onChange={(v) => update("tf_years", v)}
       />

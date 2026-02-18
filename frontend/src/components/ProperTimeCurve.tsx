@@ -54,18 +54,19 @@ export function ProperTimeCurve({ worldline }: Props) {
     return result;
   }, [worldline]);
 
-  // Compute slope annotation (dτ/dt = 1/γ)
-  const gamma =
-    worldline.coord_times_years.length >= 2 && worldline.proper_times_years.length >= 2
-      ? (worldline.coord_times_years[1]! - worldline.coord_times_years[0]!) /
-        (worldline.proper_times_years[1]! - worldline.proper_times_years[0]!)
-      : null;
+  // Compute slope annotation (dτ/dt = 1/γ) using midpoint for generality
+  const len = worldline.coord_times_years.length;
+  const midIdx = Math.max(1, Math.floor(len / 2));
+  const prevIdx = midIdx - 1;
+  const dtCoord = worldline.coord_times_years[midIdx]! - worldline.coord_times_years[prevIdx]!;
+  const dtProper = worldline.proper_times_years[midIdx]! - worldline.proper_times_years[prevIdx]!;
+  const gamma = dtCoord > 0 && dtProper > 0 ? dtCoord / dtProper : null;
 
   const annotations: Partial<Plotly.Annotations>[] = gamma
     ? [
         {
-          x: worldline.coord_times_years[1]!,
-          y: worldline.proper_times_years[1]!,
+          x: worldline.coord_times_years[midIdx]!,
+          y: worldline.proper_times_years[midIdx]!,
           text: `dτ/dt = 1/γ ≈ ${(1 / gamma).toFixed(4)}`,
           showarrow: true,
           arrowhead: 0,

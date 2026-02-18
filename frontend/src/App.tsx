@@ -13,6 +13,8 @@ const DEFAULT_PARAMS: SolveParams = {
   tf_years: 2.0,
   proper_time_years: 1.5,
   mass_kg: 1000.0,
+  trajectory_model: "constant_velocity",
+  proper_acceleration_g: null,
 };
 
 export default function App() {

@@ -3,6 +3,8 @@ export interface SolveParams {
   tf_years: number;
   proper_time_years: number;
   mass_kg: number;
+  trajectory_model: string;
+  proper_acceleration_g: number | null;
 }
 
 export interface SolveInputs {
@@ -28,6 +30,11 @@ export interface SolutionData {
   arrival_relative_velocity_m_s: number[];
   arrival_relative_speed_m_s: number;
   arrival_relative_speed_beta: number;
+  trajectory_model: string | null;
+  proper_acceleration_m_s2: number | null;
+  peak_beta: number | null;
+  peak_gamma: number | null;
+  phase_boundaries_years: number[] | null;
 }
 
 export interface WorldlineData {
@@ -37,6 +44,7 @@ export interface WorldlineData {
   positions_au: number[][];
   proper_times_s: number[];
   proper_times_years: number[];
+  beta_profile: number[] | null;
 }
 
 export interface EarthData {
