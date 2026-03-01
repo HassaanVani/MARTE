@@ -1,12 +1,13 @@
 import { Html, Line, OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
-import type * as THREE from "three";
-import type { EarthData, WorldlineData } from "../types";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import * as THREE from "three";
+import type { EarthData, InterpolatedState, WorldlineData } from "../types";
 
 interface Props {
   worldline: WorldlineData;
   earth: EarthData;
+  interpolated: InterpolatedState | null;
 }
 
 function EarthOrbitRing() {
@@ -71,7 +72,57 @@ function Marker({
   );
 }
 
-function Scene({ worldline, earth }: Props) {
+function ShipMarker({ interpolated }: { interpolated: InterpolatedState }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.position.set(
+        interpolated.positionAU[0],
+        interpolated.positionAU[1],
+        interpolated.positionAU[2],
+      );
+    }
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[0.04, 16, 16]} />
+      <meshStandardMaterial
+        color="#f59e0b"
+        emissive="#f59e0b"
+        emissiveIntensity={1.5}
+      />
+    </mesh>
+  );
+}
+
+function EarthMarker({ interpolated }: { interpolated: InterpolatedState }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.position.set(
+        interpolated.earthPositionAU[0],
+        interpolated.earthPositionAU[1],
+        interpolated.earthPositionAU[2],
+      );
+    }
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[0.025, 16, 16]} />
+      <meshStandardMaterial
+        color="#3b82f6"
+        emissive="#3b82f6"
+        emissiveIntensity={1}
+      />
+    </mesh>
+  );
+}
+
+function Scene({ worldline, earth, interpolated }: Props) {
   const shipPosAU = worldline.positions_au;
   const earthPosAU = earth.trajectory_positions_au;
 
@@ -114,6 +165,10 @@ function Scene({ worldline, earth }: Props) {
       <Marker position={turnaround} color="#ef4444" label="TURN" />
       <Marker position={arrival} color="#06b6d4" label="ARR" />
 
+      {/* Animated markers */}
+      {interpolated && <ShipMarker interpolated={interpolated} />}
+      {interpolated && <EarthMarker interpolated={interpolated} />}
+
       <OrbitControls
         makeDefault
         enableDamping
@@ -125,13 +180,13 @@ function Scene({ worldline, earth }: Props) {
   );
 }
 
-export function OrbitalView({ worldline, earth }: Props) {
+export function OrbitalView({ worldline, earth, interpolated }: Props) {
   return (
     <Canvas
       camera={{ position: [0, 0, 3], fov: 50, near: 0.01, far: 100 }}
       style={{ background: "#09090b" }}
     >
-      <Scene worldline={worldline} earth={earth} />
+      <Scene worldline={worldline} earth={earth} interpolated={interpolated} />
     </Canvas>
   );
 }

@@ -62,3 +62,23 @@ export interface SolveResponse {
   earth: EarthData | null;
   error: string | null;
 }
+
+export type ViewMode = "observer" | "kinetic";
+
+export interface AnimationState {
+  progress: number;
+  playing: boolean;
+  speed: number;
+}
+
+export interface InterpolatedState {
+  coordTime: number;
+  properTime: number;
+  positionAU: [number, number, number];
+  beta: number;
+  gamma: number;
+  velocityDirection: [number, number, number];
+  phase: "ACCELERATING" | "COASTING" | "TURNAROUND" | "DECELERATING";
+  distanceToEarth: number;
+  earthPositionAU: [number, number, number];
+}

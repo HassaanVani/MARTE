@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import Plot from "react-plotly.js";
-import type { EarthData, WorldlineData } from "../types";
+import type { EarthData, InterpolatedState, WorldlineData } from "../types";
 
 interface Props {
   worldline: WorldlineData;
   earth: EarthData;
+  interpolated: InterpolatedState | null;
 }
 
 const LAYOUT_BASE: Partial<Plotly.Layout> = {
@@ -28,23 +29,26 @@ const LAYOUT_BASE: Partial<Plotly.Layout> = {
   legend: { x: 0.02, y: 0.98, font: { size: 10 }, bgcolor: "transparent" },
 };
 
-export function MinkowskiDiagram({ worldline, earth }: Props) {
-  const traces = useMemo(() => {
-    // Ship worldline: x-displacement in AU vs ct in light-years
-    // For Minkowski diagram, use displacement along trajectory direction from departure
-    const depX = worldline.positions_au[0]![0]!;
-    const depY = worldline.positions_au[0]![1]!;
+export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
+  const lastUpdateRef = useRef(0);
 
-    // Project positions onto displacement axis relative to departure
-    const shipX = worldline.positions_au.map((p) => {
-      const dx = p[0]! - depX;
-      const dy = p[1]! - depY;
+  // Compute ship x-displacement for the indicator
+  const depX = worldline.positions_au[0]![0]!;
+  const depY = worldline.positions_au[0]![1]!;
+
+  const computeShipX = useCallback(
+    (pos: number[]) => {
+      const dx = pos[0]! - depX;
+      const dy = pos[1]! - depY;
       return Math.sqrt(dx * dx + dy * dy) * Math.sign(dx || dy || 1);
-    });
-    // ct in light-years = t in years (since c = 1 ly/yr)
+    },
+    [depX, depY],
+  );
+
+  const traces = useMemo(() => {
+    const shipX = worldline.positions_au.map(computeShipX);
     const shipCtLy = worldline.coord_times_years;
 
-    // Earth worldline projected similarly
     const earthX = earth.trajectory_positions_au.map((p) => {
       const dx = p[0]! - depX;
       const dy = p[1]! - depY;
@@ -52,13 +56,11 @@ export function MinkowskiDiagram({ worldline, earth }: Props) {
     });
     const earthCt = earth.trajectory_times_years;
 
-    // Light cones from departure
     const tMax = worldline.coord_times_years[worldline.coord_times_years.length - 1]!;
     const xMax = Math.max(...shipX.map(Math.abs), 2);
     const coneRange = Math.max(tMax, xMax) * 1.2;
 
     const result: Plotly.Data[] = [
-      // Light cone (future)
       {
         x: [-coneRange, 0, coneRange],
         y: [coneRange, 0, coneRange],
@@ -67,7 +69,6 @@ export function MinkowskiDiagram({ worldline, earth }: Props) {
         name: "Light cone",
         showlegend: true,
       },
-      // Earth worldline
       {
         x: earthX,
         y: earthCt,
@@ -75,7 +76,6 @@ export function MinkowskiDiagram({ worldline, earth }: Props) {
         line: { color: "#3b82f6", width: 2 },
         name: "Earth",
       },
-      // Ship worldline
       {
         x: shipX,
         y: shipCtLy,
@@ -86,8 +86,50 @@ export function MinkowskiDiagram({ worldline, earth }: Props) {
       },
     ];
 
+    // Add indicator trace (will be updated)
+    if (interpolated) {
+      const ix = computeShipX(interpolated.positionAU);
+      result.push({
+        x: [ix],
+        y: [interpolated.coordTime],
+        mode: "markers",
+        marker: { size: 12, color: "#f59e0b", symbol: "circle" },
+        name: "Current",
+        showlegend: false,
+      });
+    }
+
     return result;
-  }, [worldline, earth]);
+  }, [worldline, earth, interpolated, computeShipX, depX, depY]);
+
+  // Throttle re-renders to ~10fps for Plotly performance
+  const now = performance.now();
+  const shouldUpdate = now - lastUpdateRef.current > 100;
+  if (shouldUpdate) lastUpdateRef.current = now;
+
+  // Horizontal dashed line at current ct
+  const shapes: Partial<Plotly.Shape>[] = [];
+  if (interpolated && shouldUpdate) {
+    const tMax = worldline.coord_times_years[worldline.coord_times_years.length - 1]!;
+    const xMax = 3;
+    shapes.push({
+      type: "line",
+      x0: -xMax,
+      x1: xMax,
+      y0: interpolated.coordTime,
+      y1: interpolated.coordTime,
+      line: { color: "#f59e0b", width: 1, dash: "dash" },
+    });
+    // Vertical reference line
+    shapes.push({
+      type: "line",
+      x0: computeShipX(interpolated.positionAU),
+      x1: computeShipX(interpolated.positionAU),
+      y0: 0,
+      y1: tMax,
+      line: { color: "#f59e0b33", width: 1, dash: "dot" },
+    });
+  }
 
   return (
     <Plot
@@ -95,6 +137,7 @@ export function MinkowskiDiagram({ worldline, earth }: Props) {
       layout={{
         ...LAYOUT_BASE,
         title: { text: "MINKOWSKI DIAGRAM", font: { size: 11, color: "#f59e0b" } },
+        shapes,
       }}
       config={{ responsive: true, displayModeBar: false }}
       useResizeHandler

@@ -52,6 +52,89 @@ input[type="range"] {
   accent-color: var(--color-amber);
 }
 
+select {
+  font-family: var(--font-mono);
+}
+
+/* HUD panels */
+.hud-panel {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 10px 14px;
+  min-width: 160px;
+}
+
+.hud-panel-center {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 6px 20px;
+}
+
+.hud-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 2px;
+}
+
+.hud-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.hud-overlay {
+  font-family: var(--font-mono);
+}
+
+/* Cockpit vignette — dark edges for immersion */
+.cockpit-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.3) 75%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+  pointer-events: none;
+}
+
+/* Timeline scrubber */
+.timeline-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.timeline-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--color-amber);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.timeline-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--color-amber);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Timeline bar */
+.timeline-bar {
+  background: var(--color-surface);
+}
+
 /* Plotly overrides for dark theme */
 .js-plotly-plot .plotly .modebar {
   background: transparent !important;
