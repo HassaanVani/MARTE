@@ -19,6 +19,7 @@ from marte.relativity import (
     relativistic_velocity_addition,
 )
 from marte.solver import TrajectoryModel, TrajectorySolution
+from marte.targets import target_position, target_velocity
 from marte.validation import (
     check_arrival_intersection,
     check_proper_time_consistency,
@@ -35,6 +36,13 @@ def find_all_solutions(
     mass: float = 1000.0,
     proper_acceleration: float | None = None,
     n_starts: int = 8,
+    elliptical: bool = False,
+    acceleration_profile: str = "step",
+    ramp_fraction: float = 0.1,
+    earth_model: str | None = None,
+    gr_corrections: bool = False,
+    compute_perturbation: bool = False,
+    target: str = "earth",
 ) -> list[TrajectorySolution]:
     """Find all valid trajectory branches by multi-start optimization.
 
@@ -62,8 +70,11 @@ def find_all_solutions(
     if delta_t <= 0 or tau <= 0 or tau >= delta_t:
         return []
 
-    r_e0 = earth_position(t0)
-    r_ef = earth_position(tf)
+    r_e0 = earth_position(t0, elliptical=elliptical, earth_model=earth_model)
+    if target.lower() == "earth":
+        r_ef = earth_position(tf, elliptical=elliptical, earth_model=earth_model)
+    else:
+        r_ef = target_position(target, tf)
     d = r_ef - r_e0
     d_mag = float(np.linalg.norm(d))
     base_theta = np.arctan2(float(d[1]), float(d[0])) if d_mag > 1e-6 else 0.0
@@ -130,6 +141,8 @@ def find_all_solutions(
             start_position=r_e0,
             start_coord_time=t0,
             n_points_per_phase=n_per_phase,
+            acceleration_profile=acceleration_profile,
+            ramp_fraction=ramp_fraction,
         )
 
         subluminal_ok = check_subluminal(worldline)
@@ -170,8 +183,14 @@ def find_all_solutions(
         else:
             v_ship_final = np.zeros(3)
 
-        v_earth_tf = earth_velocity(tf)
-        arrival_rel_vel = relativistic_velocity_addition(v_ship_final, v_earth_tf)
+        if target.lower() == "earth":
+            v_target_tf = earth_velocity(tf, elliptical=elliptical, earth_model=earth_model)
+        else:
+            v_target_tf = target_velocity(target, tf)
+        arrival_rel_vel = relativistic_velocity_addition(v_ship_final, v_target_tf)
+
+        # Total rapidity change: sum of 4 phase rapidity magnitudes
+        total_rapidity = 2.0 * (a * tau_out_half / c + a * tau_in_half / c)
 
         sol = TrajectorySolution(
             worldline=worldline,
@@ -190,7 +209,22 @@ def find_all_solutions(
             peak_gamma=peak_gamma,
             phase_boundaries=phase_boundaries,
             beta_profile=beta_profile,
+            total_rapidity_change=total_rapidity,
+            n_function_evals=int(result.nfev) if hasattr(result, "nfev") else None,
+            solver_message=str(result.message) if hasattr(result, "message") else None,
+            position_error_m=arrival_residual,
+            proper_time_error_s=abs(worldline.proper_times[-1] - tau),
         )
+        # Post-processing: GR corrections
+        if gr_corrections:
+            from marte.general_relativity import gr_correction as _gr_correction
+            sol.gr_diagnostics = _gr_correction(sol.worldline)
+
+        # Post-processing: multi-body perturbation
+        if compute_perturbation:
+            from marte.gravity import compute_perturbation_profile
+            sol.perturbation = compute_perturbation_profile(sol.worldline)
+
         solutions.append(sol)
 
     return solutions
@@ -350,6 +384,11 @@ def _solve_v2(
     proper_time_desired: float,
     mass: float,
     proper_acceleration: float | None,
+    elliptical: bool = False,
+    acceleration_profile: str = "step",
+    ramp_fraction: float = 0.1,
+    earth_model: str | None = None,
+    target: str = "earth",
 ) -> TrajectorySolution:
     """Solve for a constant proper acceleration trajectory.
 
@@ -374,9 +413,12 @@ def _solve_v2(
 
     a = proper_acceleration
 
-    # Earth positions
-    r_e0 = earth_position(t0)
-    r_ef = earth_position(tf)
+    # Departure from Earth, arrival at target
+    r_e0 = earth_position(t0, elliptical=elliptical, earth_model=earth_model)
+    if target.lower() == "earth":
+        r_ef = earth_position(tf, elliptical=elliptical, earth_model=earth_model)
+    else:
+        r_ef = target_position(target, tf)
 
     # Initial guess from symmetric brachistochrone
     d = r_ef - r_e0
@@ -442,6 +484,8 @@ def _solve_v2(
         start_position=r_e0,
         start_coord_time=t0,
         n_points_per_phase=n_per_phase,
+        acceleration_profile=acceleration_profile,
+        ramp_fraction=ramp_fraction,
     )
 
     # Compute peak beta (at end of each acceleration phase)
@@ -499,8 +543,18 @@ def _solve_v2(
     else:
         v_ship_final = np.zeros(3)
 
-    v_earth_tf = earth_velocity(tf)
-    arrival_rel_vel = relativistic_velocity_addition(v_ship_final, v_earth_tf)
+    if target.lower() == "earth":
+        v_target_tf = earth_velocity(tf, elliptical=elliptical, earth_model=earth_model)
+    else:
+        v_target_tf = target_velocity(target, tf)
+    arrival_rel_vel = relativistic_velocity_addition(v_ship_final, v_target_tf)
+
+    # Total rapidity change: sum of 4 phase rapidity magnitudes
+    total_rapidity = 2.0 * (a * tau_out_half / c + a * tau_in_half / c)
+
+    # Convergence diagnostics
+    arrival_error = float(np.linalg.norm(worldline.positions[-1] - r_ef))
+    tau_error_s = abs(worldline.proper_times[-1] - tau)
 
     return TrajectorySolution(
         worldline=worldline,
@@ -519,4 +573,9 @@ def _solve_v2(
         peak_gamma=peak_gamma,
         phase_boundaries=phase_boundaries,
         beta_profile=beta_profile,
+        total_rapidity_change=total_rapidity,
+        n_function_evals=int(result.nfev) if hasattr(result, "nfev") else None,
+        solver_message=str(result.message) if hasattr(result, "message") else None,
+        position_error_m=arrival_error,
+        proper_time_error_s=tau_error_s,
     )

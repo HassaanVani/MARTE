@@ -1,14 +1,22 @@
 """Trajectory solver — dispatches between v1 (constant velocity) and v2 (constant acceleration)."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from math import acos, atan2, sqrt
+from math import acos, atanh, atan2, sqrt
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from marte.constants import SPEED_OF_LIGHT
 from marte.orbital import earth_position, earth_velocity
+from marte.targets import target_position, target_velocity
+
+if TYPE_CHECKING:
+    from marte.general_relativity import GRDiagnostics
+    from marte.gravity import PerturbationAnalysis
 from marte.relativity import (
     relativistic_kinetic_energy,
     relativistic_velocity_addition,
@@ -70,6 +78,14 @@ class TrajectorySolution:
     peak_gamma: float | None = None
     phase_boundaries: list[float] = field(default_factory=list)
     beta_profile: list[float] = field(default_factory=list)
+    total_rapidity_change: float = 0.0
+    n_function_evals: int | None = None
+    solver_message: str | None = None
+    position_error_m: float = 0.0
+    proper_time_error_s: float = 0.0
+    # Phase 4 fields (GR + perturbation, optional)
+    gr_diagnostics: GRDiagnostics | None = None
+    perturbation: PerturbationAnalysis | None = None
 
 
 def solve_trajectory(
@@ -79,6 +95,13 @@ def solve_trajectory(
     mass: float = 1000.0,
     model: TrajectoryModel = TrajectoryModel.CONSTANT_VELOCITY,
     proper_acceleration: float | None = None,
+    elliptical: bool = False,
+    acceleration_profile: str = "step",
+    ramp_fraction: float = 0.1,
+    earth_model: str | None = None,
+    gr_corrections: bool = False,
+    compute_perturbation: bool = False,
+    target: str = "earth",
 ) -> TrajectorySolution:
     """Solve for the trajectory matching departure, arrival, and proper time constraints.
 
@@ -91,6 +114,9 @@ def solve_trajectory(
         mass: Ship rest mass in kg (default: 1000 kg).
         model: Trajectory model to use.
         proper_acceleration: Proper acceleration in m/s² (required for CONSTANT_ACCELERATION).
+        earth_model: Earth orbit model: "circular", "elliptical", or "ephemeris".
+        gr_corrections: If True, compute GR diagnostics post-solve.
+        compute_perturbation: If True, compute multi-body perturbation analysis.
 
     Returns:
         A TrajectorySolution with the computed trajectory and solver diagnostics.
@@ -98,9 +124,30 @@ def solve_trajectory(
     if model == TrajectoryModel.CONSTANT_ACCELERATION:
         from marte.solver_v2 import _solve_v2
 
-        return _solve_v2(t0, tf, proper_time_desired, mass, proper_acceleration)
+        sol = _solve_v2(
+            t0, tf, proper_time_desired, mass, proper_acceleration,
+            elliptical=elliptical,
+            acceleration_profile=acceleration_profile,
+            ramp_fraction=ramp_fraction,
+            earth_model=earth_model,
+            target=target,
+        )
+    else:
+        sol = _solve_v1(t0, tf, proper_time_desired, mass,
+                        elliptical=elliptical, earth_model=earth_model,
+                        target=target)
 
-    return _solve_v1(t0, tf, proper_time_desired, mass)
+    # Post-processing: GR corrections
+    if gr_corrections:
+        from marte.general_relativity import gr_correction
+        sol.gr_diagnostics = gr_correction(sol.worldline)
+
+    # Post-processing: multi-body perturbation
+    if compute_perturbation:
+        from marte.gravity import compute_perturbation_profile
+        sol.perturbation = compute_perturbation_profile(sol.worldline)
+
+    return sol
 
 
 def _solve_v1(
@@ -108,6 +155,9 @@ def _solve_v1(
     tf: float,
     proper_time_desired: float,
     mass: float = 1000.0,
+    elliptical: bool = False,
+    earth_model: str | None = None,
+    target: str = "earth",
 ) -> TrajectorySolution:
     """Analytical solver for the v1 piecewise constant-velocity model."""
     delta_t = tf - t0
@@ -131,9 +181,12 @@ def _solve_v1(
     # Step 2: Turnaround at midpoint
     t_turn = (t0 + tf) / 2.0
 
-    # Step 3: Earth positions at departure and arrival
-    r_e0 = earth_position(t0)
-    r_ef = earth_position(tf)
+    # Step 3: Departure from Earth, arrival at target
+    r_e0 = earth_position(t0, elliptical=elliptical, earth_model=earth_model)
+    if target.lower() == "earth":
+        r_ef = earth_position(tf, elliptical=elliptical, earth_model=earth_model)
+    else:
+        r_ef = target_position(target, tf)
 
     # Step 4: Displacement vector and its properties
     d = r_ef - r_e0
@@ -204,10 +257,16 @@ def _solve_v1(
 
     # Step 11: Arrival relative velocity via relativistic velocity addition
     # Ship velocity in SSBIF at arrival is v_in
-    # Earth velocity in SSBIF at arrival
-    v_earth_tf = earth_velocity(tf)
-    # Velocity of ship relative to Earth = ship velocity transformed to Earth's rest frame
-    arrival_rel_vel = relativistic_velocity_addition(v_in, v_earth_tf)
+    # Target velocity in SSBIF at arrival
+    if target.lower() == "earth":
+        v_target_tf = earth_velocity(tf, elliptical=elliptical, earth_model=earth_model)
+    else:
+        v_target_tf = target_velocity(target, tf)
+    # Velocity of ship relative to target = ship velocity transformed to target's rest frame
+    arrival_rel_vel = relativistic_velocity_addition(v_in, v_target_tf)
+
+    # Rapidity change: 4 velocity changes (accel out, decel out, accel in, decel in)
+    total_rapidity_change = 4.0 * atanh(beta) if beta > 0 else 0.0
 
     return TrajectorySolution(
         worldline=worldline,
@@ -220,4 +279,7 @@ def _solve_v1(
         residual=residual,
         energy=energy,
         arrival_relative_velocity=arrival_rel_vel,
+        total_rapidity_change=total_rapidity_change,
+        position_error_m=arrival_residual,
+        proper_time_error_s=abs(worldline.proper_times[-1] - tau),
     )
