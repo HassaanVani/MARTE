@@ -1,5 +1,7 @@
 """Earth position and velocity models in the Solar System Barycentric Inertial Frame."""
 
+from __future__ import annotations
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -12,6 +14,10 @@ from marte.constants import (
 
 R = EARTH_ORBITAL_RADIUS  # semi-major axis for circular; used as 'a' for elliptical
 omega = EARTH_ORBITAL_ANGULAR_VEL
+
+# Cached ephemeris for "ephemeris" earth model
+_cached_ephemeris: object | None = None
+_cached_ephemeris_range: tuple[float, float] | None = None
 
 
 def _earth_position_circular(coord_time: float) -> NDArray[np.float64]:
@@ -123,33 +129,106 @@ def _earth_velocity_elliptical(coord_time: float) -> NDArray[np.float64]:
     return np.array([vx, vy, 0.0])
 
 
-def earth_position(coord_time: float, elliptical: bool = False) -> NDArray[np.float64]:
+def _resolve_earth_model(elliptical: bool, earth_model: str | None) -> str:
+    """Resolve the earth model string from legacy and new parameters.
+
+    Priority: earth_model string > elliptical bool > default "circular".
+    """
+    if earth_model is not None:
+        return earth_model
+    if elliptical:
+        return "elliptical"
+    return "circular"
+
+
+def _get_ephemeris_position(coord_time: float) -> NDArray[np.float64]:
+    """Get Earth position from cached JPL Horizons ephemeris."""
+    global _cached_ephemeris
+    if _cached_ephemeris is None:
+        raise RuntimeError(
+            "Ephemeris data not loaded. Call load_ephemeris() or use "
+            "earth_model='circular' or 'elliptical' instead."
+        )
+    return _cached_ephemeris.position(coord_time)  # type: ignore[union-attr]
+
+
+def _get_ephemeris_velocity(coord_time: float) -> NDArray[np.float64]:
+    """Get Earth velocity from cached JPL Horizons ephemeris."""
+    global _cached_ephemeris
+    if _cached_ephemeris is None:
+        raise RuntimeError(
+            "Ephemeris data not loaded. Call load_ephemeris() or use "
+            "earth_model='circular' or 'elliptical' instead."
+        )
+    return _cached_ephemeris.velocity(coord_time)  # type: ignore[union-attr]
+
+
+def load_ephemeris(t_start_s: float, t_end_s: float, step_days: int = 1) -> None:
+    """Pre-load Earth ephemeris for use with earth_model='ephemeris'.
+
+    Args:
+        t_start_s: Start time in MARTE seconds since J2000.0.
+        t_end_s: End time in MARTE seconds since J2000.0.
+        step_days: Time step in days.
+    """
+    global _cached_ephemeris, _cached_ephemeris_range
+    from marte.ephemeris import fetch_earth_ephemeris
+    _cached_ephemeris = fetch_earth_ephemeris(t_start_s, t_end_s, step_days)
+    _cached_ephemeris_range = (t_start_s, t_end_s)
+
+
+def set_ephemeris(ephemeris_data: object) -> None:
+    """Inject ephemeris data directly (for testing or pre-fetched data)."""
+    global _cached_ephemeris
+    _cached_ephemeris = ephemeris_data
+
+
+def earth_position(
+    coord_time: float,
+    elliptical: bool = False,
+    earth_model: str | None = None,
+) -> NDArray[np.float64]:
     """Compute Earth's position vector at a given coordinate time.
 
     Args:
         coord_time: Coordinate time in SSBIF (s).
         elliptical: If True, use elliptical orbit with Kepler's equation.
             Default False preserves circular approximation.
+        earth_model: Override model selection. One of:
+            "circular" — analytical circular orbit (default)
+            "elliptical" — Kepler equation
+            "ephemeris" — JPL Horizons data (must call load_ephemeris first)
 
     Returns:
         Position vector [x, y, z] in meters, shape (3,).
     """
-    if elliptical:
+    model = _resolve_earth_model(elliptical, earth_model)
+    if model == "ephemeris":
+        return _get_ephemeris_position(coord_time)
+    if model == "elliptical":
         return _earth_position_elliptical(coord_time)
     return _earth_position_circular(coord_time)
 
 
-def earth_velocity(coord_time: float, elliptical: bool = False) -> NDArray[np.float64]:
+def earth_velocity(
+    coord_time: float,
+    elliptical: bool = False,
+    earth_model: str | None = None,
+) -> NDArray[np.float64]:
     """Compute Earth's velocity vector at a given coordinate time.
 
     Args:
         coord_time: Coordinate time in SSBIF (s).
         elliptical: If True, use elliptical orbit.
             Default False preserves circular approximation.
+        earth_model: Override model selection (same as earth_position).
 
     Returns:
         Velocity vector [vx, vy, vz] in m/s, shape (3,).
     """
-    if elliptical:
+    model = _resolve_earth_model(elliptical, earth_model)
+    if model == "ephemeris":
+        return _get_ephemeris_velocity(coord_time)
+    if model == "elliptical":
         return _earth_velocity_elliptical(coord_time)
     return _earth_velocity_circular(coord_time)

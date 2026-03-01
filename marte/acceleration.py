@@ -203,6 +203,8 @@ def build_brachistochrone_worldline(
     start_position: NDArray[np.float64],
     start_coord_time: float,
     n_points_per_phase: int = 50,
+    acceleration_profile: str = "step",
+    ramp_fraction: float = 0.1,
 ) -> Worldline:
     """Build a 4-phase brachistochrone worldline with constant proper acceleration.
 
@@ -223,6 +225,8 @@ def build_brachistochrone_worldline(
         start_position: Departure position (m), shape (3,).
         start_coord_time: Departure coordinate time (s).
         n_points_per_phase: Samples per phase.
+        acceleration_profile: "step", "linear_ramp", or "s_curve".
+        ramp_fraction: Fraction of phase duration used for ramp-up/ramp-down (0-0.5).
 
     Returns:
         A Worldline with 4 * n_points_per_phase - 3 waypoints (boundaries shared).
@@ -230,6 +234,8 @@ def build_brachistochrone_worldline(
     direction_out = np.asarray(direction_out, dtype=np.float64)
     direction_in = np.asarray(direction_in, dtype=np.float64)
     start_position = np.asarray(start_position, dtype=np.float64)
+
+    use_jerk = acceleration_profile != "step" and n_points_per_phase >= 10
 
     all_coord_times = []
     all_positions = []
@@ -249,16 +255,39 @@ def build_brachistochrone_worldline(
     ]
 
     for phase_idx, (accel, tau_dur, direction) in enumerate(phases):
-        ct, ps, pt, bs = build_acceleration_phase(
-            proper_accel=accel,
-            tau_duration=tau_dur,
-            n_points=n_points_per_phase,
-            direction=direction,
-            start_position=pos,
-            start_coord_time=t_coord,
-            start_proper_time=tau,
-            start_rapidity=rapidity,
-        )
+        if use_jerk:
+            from marte.jerk_profiles import AccelerationProfile, build_jerk_limited_phase
+
+            profile_enum = {
+                "linear_ramp": AccelerationProfile.LINEAR_RAMP,
+                "s_curve": AccelerationProfile.S_CURVE,
+            }.get(acceleration_profile, AccelerationProfile.STEP)
+
+            ramp_time = tau_dur * min(ramp_fraction, 0.5)
+
+            ct, ps, pt, bs = build_jerk_limited_phase(
+                peak_accel=accel,
+                tau_phase=tau_dur,
+                profile=profile_enum,
+                ramp_time=ramp_time,
+                n_points=n_points_per_phase,
+                direction=direction,
+                start_position=pos,
+                start_coord_time=t_coord,
+                start_proper_time=tau,
+                start_rapidity=rapidity,
+            )
+        else:
+            ct, ps, pt, bs = build_acceleration_phase(
+                proper_accel=accel,
+                tau_duration=tau_dur,
+                n_points=n_points_per_phase,
+                direction=direction,
+                start_position=pos,
+                start_coord_time=t_coord,
+                start_proper_time=tau,
+                start_rapidity=rapidity,
+            )
 
         # Skip the first point for phases after the first (avoid duplicate boundary)
         if phase_idx > 0:

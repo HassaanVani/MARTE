@@ -130,11 +130,92 @@ function Earth({ interpolated }: Props) {
   );
 }
 
+function EarthGhost({ interpolated }: Props) {
+  const groupRef = useRef<THREE.Group>(null);
+  const lineObjRef = useRef<THREE.Line | null>(null);
+
+  const lineMat = useMemo(
+    () =>
+      new THREE.LineDashedMaterial({
+        color: "#6699ff",
+        dashSize: 0.3,
+        gapSize: 0.2,
+        transparent: true,
+        opacity: 0.3,
+      }),
+    [],
+  );
+
+  const lineObj = useMemo(() => {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3),
+    );
+    const obj = new THREE.Line(geom, lineMat);
+    lineObjRef.current = obj;
+    return obj;
+  }, [lineMat]);
+
+  useFrame(() => {
+    if (!interpolated || !groupRef.current || !lineObjRef.current) return;
+    const shipPos = interpolated.positionAU;
+    const apparentPos = interpolated.earthApparentPositionAU;
+    const actualPos = interpolated.earthPositionAU;
+
+    // Ghost position (light-delayed Earth)
+    groupRef.current.position.set(
+      (apparentPos[0] - shipPos[0]) * AU_SCALE,
+      (apparentPos[1] - shipPos[1]) * AU_SCALE,
+      (apparentPos[2] - shipPos[2]) * AU_SCALE,
+    );
+
+    // Dashed line from actual to ghost
+    const geom = lineObjRef.current.geometry as THREE.BufferGeometry;
+    const positions = geom.attributes.position;
+    if (positions) {
+      positions.setXYZ(
+        0,
+        (actualPos[0] - shipPos[0]) * AU_SCALE,
+        (actualPos[1] - shipPos[1]) * AU_SCALE,
+        (actualPos[2] - shipPos[2]) * AU_SCALE,
+      );
+      positions.setXYZ(
+        1,
+        (apparentPos[0] - shipPos[0]) * AU_SCALE,
+        (apparentPos[1] - shipPos[1]) * AU_SCALE,
+        (apparentPos[2] - shipPos[2]) * AU_SCALE,
+      );
+      positions.needsUpdate = true;
+      lineObjRef.current.computeLineDistances();
+    }
+  });
+
+  return (
+    <>
+      <group ref={groupRef}>
+        {/* Ghost Earth: wireframe, semi-transparent */}
+        <mesh>
+          <sphereGeometry args={[0.18, 16, 16]} />
+          <meshBasicMaterial
+            color="#6699ff"
+            wireframe
+            transparent
+            opacity={0.25}
+          />
+        </mesh>
+      </group>
+      <primitive object={lineObj} />
+    </>
+  );
+}
+
 export function CelestialObjects({ interpolated }: Props) {
   return (
     <>
       <Sun interpolated={interpolated} />
       <Earth interpolated={interpolated} />
+      <EarthGhost interpolated={interpolated} />
       <EngineGlow interpolated={interpolated} />
     </>
   );

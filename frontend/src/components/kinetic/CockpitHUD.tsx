@@ -15,7 +15,7 @@ function formatSpeed(kms: number): string {
 export function CockpitHUD({ interpolated }: Props) {
   if (!interpolated) return null;
 
-  const { coordTime, properTime, beta, gamma, phase, distanceToEarth } =
+  const { coordTime, properTime, beta, gamma, phase, distanceToEarth, lightDelaySeconds } =
     interpolated;
 
   const speedKms = beta * SPEED_OF_LIGHT_KMS;
@@ -163,7 +163,15 @@ export function CockpitHUD({ interpolated }: Props) {
           <div className="flex items-baseline justify-between gap-4 text-[11px]">
             <span className="text-text-dim">Light delay</span>
             <span className="text-text-dim tabular-nums">
-              {(distanceToEarth * 499.0 / 60).toFixed(1)} min
+              {(lightDelaySeconds / 60).toFixed(1)} min
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 text-[11px]">
+            <span className="text-text-dim">Apparent lag</span>
+            <span className="text-amber tabular-nums">
+              {lightDelaySeconds > 3600
+                ? `${(lightDelaySeconds / 3600).toFixed(1)} hr`
+                : `${(lightDelaySeconds / 60).toFixed(1)} min`}
             </span>
           </div>
         </div>

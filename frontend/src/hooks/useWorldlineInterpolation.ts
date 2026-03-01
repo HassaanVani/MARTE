@@ -87,6 +87,9 @@ function determinePhaseV2(
   return "ACCELERATING";
 }
 
+/** Seconds of light delay per AU */
+const LIGHT_SECONDS_PER_AU = 499.0;
+
 export function useWorldlineInterpolation(
   response: SolveResponse | null,
   progress: number,
@@ -158,6 +161,13 @@ export function useWorldlineInterpolation(
     const edz = positionAU[2] - earthPositionAU[2];
     const distanceToEarth = Math.sqrt(edx * edx + edy * edy + edz * edz);
 
+    // Time-Lag Ghost: light-delayed (apparent) Earth position
+    const lightDelaySeconds = distanceToEarth * LIGHT_SECONDS_PER_AU;
+    const SECONDS_PER_YEAR = 365.25 * 24 * 3600;
+    const lightDelayYears = lightDelaySeconds / SECONDS_PER_YEAR;
+    const apparentTime = coordTime - lightDelayYears;
+    const earthApparentPositionAU = interpolateEarthPosition(earth, apparentTime);
+
     return {
       coordTime,
       properTime,
@@ -168,6 +178,8 @@ export function useWorldlineInterpolation(
       phase,
       distanceToEarth,
       earthPositionAU,
+      earthApparentPositionAU,
+      lightDelaySeconds,
     };
   }, [response, progress]);
 }

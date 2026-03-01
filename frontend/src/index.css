@@ -143,3 +143,8 @@ select {
 .js-plotly-plot .plotly .modebar-btn path {
   fill: var(--color-text-dim) !important;
 }
+
+/* Spacetime Loom: crosshair cursor on Plotly chart areas */
+.js-plotly-plot .plotly .nsewdrag {
+  cursor: crosshair !important;
+}

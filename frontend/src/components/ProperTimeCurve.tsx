@@ -1,10 +1,11 @@
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import Plot from "react-plotly.js";
 import type { InterpolatedState, WorldlineData } from "../types";
 
 interface Props {
   worldline: WorldlineData;
   interpolated: InterpolatedState | null;
+  onProperTimeChange?: (tau: number) => void;
 }
 
 const LAYOUT_BASE: Partial<Plotly.Layout> = {
@@ -28,7 +29,7 @@ const LAYOUT_BASE: Partial<Plotly.Layout> = {
   legend: { x: 0.02, y: 0.98, font: { size: 10 }, bgcolor: "transparent" },
 };
 
-export function ProperTimeCurve({ worldline, interpolated }: Props) {
+export function ProperTimeCurve({ worldline, interpolated, onProperTimeChange }: Props) {
   const lastUpdateRef = useRef(0);
 
   const traces = useMemo(() => {
@@ -110,6 +111,17 @@ export function ProperTimeCurve({ worldline, interpolated }: Props) {
     });
   }
 
+  const handleClick = useCallback(
+    (event: Plotly.PlotMouseEvent) => {
+      if (!onProperTimeChange || !event.points || event.points.length === 0) return;
+      const point = event.points[0];
+      if (point && typeof point.y === "number" && point.y > 0) {
+        onProperTimeChange(point.y);
+      }
+    },
+    [onProperTimeChange],
+  );
+
   return (
     <Plot
       data={traces}
@@ -118,10 +130,12 @@ export function ProperTimeCurve({ worldline, interpolated }: Props) {
         title: { text: "PROPER TIME CURVE", font: { size: 11, color: "#f59e0b" } },
         annotations,
         shapes,
+        clickmode: onProperTimeChange ? "event" : "none",
       }}
       config={{ responsive: true, displayModeBar: false }}
       useResizeHandler
       style={{ width: "100%", height: "100%" }}
+      onClick={onProperTimeChange ? handleClick : undefined}
     />
   );
 }

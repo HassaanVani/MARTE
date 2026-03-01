@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useRef } from "react";
 import Plot from "react-plotly.js";
-import type { EarthData, InterpolatedState, WorldlineData } from "../types";
+import type { BranchData, EarthData, InterpolatedState, WorldlineData } from "../types";
 
 interface Props {
   worldline: WorldlineData;
   earth: EarthData;
   interpolated: InterpolatedState | null;
+  branches?: BranchData[] | null;
+  selectedBranch?: number;
+  onArrivalTimeChange?: (tf_years: number) => void;
 }
 
 const LAYOUT_BASE: Partial<Plotly.Layout> = {
@@ -29,7 +32,14 @@ const LAYOUT_BASE: Partial<Plotly.Layout> = {
   legend: { x: 0.02, y: 0.98, font: { size: 10 }, bgcolor: "transparent" },
 };
 
-export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
+export function MinkowskiDiagram({
+  worldline,
+  earth,
+  interpolated,
+  branches,
+  selectedBranch = 0,
+  onArrivalTimeChange,
+}: Props) {
   const lastUpdateRef = useRef(0);
 
   // Compute ship x-displacement for the indicator
@@ -76,17 +86,37 @@ export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
         line: { color: "#3b82f6", width: 2 },
         name: "Earth",
       },
-      {
-        x: shipX,
-        y: shipCtLy,
-        mode: "lines+markers",
-        line: { color: "#ef4444", width: 2 },
-        marker: { size: 6, color: "#ef4444" },
-        name: "Ship",
-      },
     ];
 
-    // Add indicator trace (will be updated)
+    // Non-selected branch traces (dimmed red)
+    if (branches && branches.length > 1) {
+      for (let i = 0; i < branches.length; i++) {
+        if (i === selectedBranch) continue;
+        const bwl = branches[i]!.worldline;
+        const bShipX = bwl.positions_au.map(computeShipX);
+        result.push({
+          x: bShipX,
+          y: bwl.coord_times_years,
+          mode: "lines",
+          line: { color: "#ef4444", width: 1, dash: "dot" },
+          opacity: 0.3,
+          name: `Branch ${String.fromCharCode(65 + i)}`,
+          showlegend: true,
+        });
+      }
+    }
+
+    // Active ship worldline
+    result.push({
+      x: shipX,
+      y: shipCtLy,
+      mode: "lines+markers",
+      line: { color: "#ef4444", width: 2 },
+      marker: { size: 6, color: "#ef4444" },
+      name: "Ship",
+    });
+
+    // Current position indicator
     if (interpolated) {
       const ix = computeShipX(interpolated.positionAU);
       result.push({
@@ -99,8 +129,20 @@ export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
       });
     }
 
+    // Arrival event diamond marker
+    const arrivalT = worldline.coord_times_years[worldline.coord_times_years.length - 1]!;
+    const arrivalX = shipX[shipX.length - 1]!;
+    result.push({
+      x: [arrivalX],
+      y: [arrivalT],
+      mode: "markers",
+      marker: { size: 10, color: "#f59e0b", symbol: "diamond", opacity: 0.5 },
+      name: "Arrival",
+      showlegend: false,
+    });
+
     return result;
-  }, [worldline, earth, interpolated, computeShipX, depX, depY]);
+  }, [worldline, earth, interpolated, computeShipX, depX, depY, branches, selectedBranch]);
 
   // Throttle re-renders to ~10fps for Plotly performance
   const now = performance.now();
@@ -131,6 +173,17 @@ export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
     });
   }
 
+  const handleClick = useCallback(
+    (event: Plotly.PlotMouseEvent) => {
+      if (!onArrivalTimeChange || !event.points || event.points.length === 0) return;
+      const point = event.points[0];
+      if (point && typeof point.y === "number" && point.y > 0) {
+        onArrivalTimeChange(point.y);
+      }
+    },
+    [onArrivalTimeChange],
+  );
+
   return (
     <Plot
       data={traces}
@@ -138,10 +191,12 @@ export function MinkowskiDiagram({ worldline, earth, interpolated }: Props) {
         ...LAYOUT_BASE,
         title: { text: "MINKOWSKI DIAGRAM", font: { size: 11, color: "#f59e0b" } },
         shapes,
+        clickmode: onArrivalTimeChange ? "event" : "none",
       }}
       config={{ responsive: true, displayModeBar: false }}
       useResizeHandler
       style={{ width: "100%", height: "100%" }}
+      onClick={onArrivalTimeChange ? handleClick : undefined}
     />
   );
 }
