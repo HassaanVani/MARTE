@@ -109,7 +109,7 @@ def build_jerk_limited_phase(
     start_coord_time: float,
     start_proper_time: float,
     start_rapidity: float,
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
     """Build one phase with variable acceleration via numerical integration.
 
     Integrates the acceleration schedule using the trapezoidal rule on rapidity:
@@ -130,7 +130,8 @@ def build_jerk_limited_phase(
         start_rapidity: Starting rapidity.
 
     Returns:
-        (coord_times, positions, proper_times, betas) arrays.
+        (coord_times, positions, proper_times, betas, final_rapidity) — arrays plus
+        the rapidity at the end of the phase (needed for correct phase chaining).
     """
     direction = np.asarray(direction, dtype=np.float64)
     start_position = np.asarray(start_position, dtype=np.float64)
@@ -177,4 +178,4 @@ def build_jerk_limited_phase(
         proper_times[i] = start_proper_time + tau_points[i]
         betas[i] = abs(np.tanh(phi))
 
-    return coord_times, positions, proper_times, betas
+    return coord_times, positions, proper_times, betas, phi

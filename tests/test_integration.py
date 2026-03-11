@@ -168,7 +168,7 @@ def test_exit_criterion_5g_burst():
     tau_phase = 0.5 * YEAR
     ramp_time = 0.05 * YEAR
 
-    ct, ps, pt, bs = build_jerk_limited_phase(
+    ct, ps, pt, bs, _ = build_jerk_limited_phase(
         peak_accel=5 * g,
         tau_phase=tau_phase,
         profile=AccelerationProfile.S_CURVE,

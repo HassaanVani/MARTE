@@ -161,7 +161,7 @@ def test_step_matches_constant_acceleration():
     )
 
     # Jerk-limited STEP
-    ct_jl, ps_jl, pt_jl, bs_jl = build_jerk_limited_phase(
+    ct_jl, ps_jl, pt_jl, bs_jl, _ = build_jerk_limited_phase(
         peak_accel=g,
         tau_phase=tau_dur,
         profile=AccelerationProfile.STEP,
@@ -218,7 +218,7 @@ def test_5g_burst_with_smooth_transitions():
     tau_dur = 0.5 * YEAR
     ramp_time = 0.05 * YEAR  # ~18 days ramp
 
-    ct, ps, pt, bs = build_jerk_limited_phase(
+    ct, ps, pt, bs, _ = build_jerk_limited_phase(
         peak_accel=5 * g,
         tau_phase=tau_dur,
         profile=AccelerationProfile.S_CURVE,

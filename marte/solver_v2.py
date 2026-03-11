@@ -13,6 +13,7 @@ from scipy.optimize import root
 
 from marte.acceleration import build_brachistochrone_worldline
 from marte.constants import SPEED_OF_LIGHT, STANDARD_GRAVITY, YEAR
+from marte.jerk_profiles import GToleranceProfile
 from marte.orbital import earth_position, earth_velocity
 from marte.relativity import (
     relativistic_kinetic_energy,
@@ -29,6 +30,52 @@ from marte.validation import (
 c = SPEED_OF_LIGHT
 
 
+def _validate_g_tolerance(
+    proper_acceleration: float,
+    g_tolerance: GToleranceProfile,
+    acceleration_profile: str = "step",
+    ramp_fraction: float = 0.1,
+) -> None:
+    """Validate that the acceleration parameters respect human g-tolerance limits.
+
+    Args:
+        proper_acceleration: Requested proper acceleration (m/s²).
+        g_tolerance: Human g-tolerance constraints.
+        acceleration_profile: Acceleration profile type.
+        ramp_fraction: Fraction of phase used for ramp.
+
+    Raises:
+        ValueError: If constraints are violated.
+    """
+    g = STANDARD_GRAVITY
+    accel_in_g = proper_acceleration / g
+
+    if accel_in_g > g_tolerance.max_peak_g:
+        raise ValueError(
+            f"Requested acceleration {accel_in_g:.1f}g exceeds maximum peak "
+            f"g-tolerance of {g_tolerance.max_peak_g:.1f}g."
+        )
+
+    if acceleration_profile == "step":
+        # Step profile = sustained at full acceleration the entire phase.
+        # The entire phase is at peak, so it must be within sustained limits.
+        if accel_in_g > g_tolerance.max_sustained_g:
+            raise ValueError(
+                f"Requested acceleration {accel_in_g:.1f}g exceeds maximum sustained "
+                f"g-tolerance of {g_tolerance.max_sustained_g:.1f}g. "
+                f"Use a jerk-limited profile (linear_ramp or s_curve) for higher accelerations."
+            )
+    else:
+        # Jerk-limited profiles: peak may exceed sustained if it's brief enough.
+        # But sustained portion (between ramps) must be within sustained limit.
+        if accel_in_g > g_tolerance.max_sustained_g and ramp_fraction < 0.5:
+            # There IS a sustained (flat) portion above the limit
+            raise ValueError(
+                f"Sustained acceleration {accel_in_g:.1f}g exceeds maximum sustained "
+                f"g-tolerance of {g_tolerance.max_sustained_g:.1f}g."
+            )
+
+
 def find_all_solutions(
     t0: float,
     tf: float,
@@ -43,6 +90,7 @@ def find_all_solutions(
     gr_corrections: bool = False,
     compute_perturbation: bool = False,
     target: str = "earth",
+    g_tolerance: GToleranceProfile | None = None,
 ) -> list[TrajectorySolution]:
     """Find all valid trajectory branches by multi-start optimization.
 
@@ -56,12 +104,19 @@ def find_all_solutions(
         mass: Ship rest mass (kg).
         proper_acceleration: Proper acceleration (m/s²). Defaults to 1g.
         n_starts: Number of starting angles to try.
+        g_tolerance: Human g-tolerance constraints. If provided, validates
+            that the acceleration profile respects physiological limits.
 
     Returns:
         List of distinct converged TrajectorySolutions.
     """
     if proper_acceleration is None:
         proper_acceleration = STANDARD_GRAVITY
+
+    if g_tolerance is not None:
+        _validate_g_tolerance(
+            proper_acceleration, g_tolerance, acceleration_profile, ramp_fraction
+        )
 
     a = proper_acceleration
     delta_t = tf - t0
@@ -389,6 +444,7 @@ def _solve_v2(
     ramp_fraction: float = 0.1,
     earth_model: str | None = None,
     target: str = "earth",
+    g_tolerance: GToleranceProfile | None = None,
 ) -> TrajectorySolution:
     """Solve for a constant proper acceleration trajectory.
 
@@ -410,6 +466,11 @@ def _solve_v2(
 
     if proper_acceleration is None:
         proper_acceleration = STANDARD_GRAVITY  # Default: 1g
+
+    if g_tolerance is not None:
+        _validate_g_tolerance(
+            proper_acceleration, g_tolerance, acceleration_profile, ramp_fraction
+        )
 
     a = proper_acceleration
 

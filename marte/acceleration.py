@@ -265,7 +265,7 @@ def build_brachistochrone_worldline(
 
             ramp_time = tau_dur * min(ramp_fraction, 0.5)
 
-            ct, ps, pt, bs = build_jerk_limited_phase(
+            ct, ps, pt, bs, final_rapidity = build_jerk_limited_phase(
                 peak_accel=accel,
                 tau_phase=tau_dur,
                 profile=profile_enum,
@@ -288,6 +288,8 @@ def build_brachistochrone_worldline(
                 start_proper_time=tau,
                 start_rapidity=rapidity,
             )
+            # For step profiles, the analytical formula is exact
+            final_rapidity = rapidity + accel * tau_dur / c
 
         # Skip the first point for phases after the first (avoid duplicate boundary)
         if phase_idx > 0:
@@ -301,8 +303,8 @@ def build_brachistochrone_worldline(
         all_proper_times.append(pt)
         all_betas.append(bs)
 
-        # Update state for next phase
-        rapidity = rapidity + accel * tau_dur / c
+        # Update state for next phase using actual rapidity from integration
+        rapidity = final_rapidity
         pos = all_positions[-1][-1].copy()
         t_coord = all_coord_times[-1][-1]
         tau = all_proper_times[-1][-1]

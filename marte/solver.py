@@ -17,6 +17,7 @@ from marte.targets import target_position, target_velocity
 if TYPE_CHECKING:
     from marte.general_relativity import GRDiagnostics
     from marte.gravity import PerturbationAnalysis
+    from marte.jerk_profiles import GToleranceProfile
 from marte.relativity import (
     relativistic_kinetic_energy,
     relativistic_velocity_addition,
@@ -102,6 +103,7 @@ def solve_trajectory(
     gr_corrections: bool = False,
     compute_perturbation: bool = False,
     target: str = "earth",
+    g_tolerance: "GToleranceProfile | None" = None,
 ) -> TrajectorySolution:
     """Solve for the trajectory matching departure, arrival, and proper time constraints.
 
@@ -131,6 +133,7 @@ def solve_trajectory(
             ramp_fraction=ramp_fraction,
             earth_model=earth_model,
             target=target,
+            g_tolerance=g_tolerance,
         )
     else:
         sol = _solve_v1(t0, tf, proper_time_desired, mass,
