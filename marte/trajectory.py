@@ -75,8 +75,10 @@ def compute_ship_worldline(
     beta_in = speed_in / c
 
     # Proper time for each leg: Δτ = Δt * √(1 - β²)
-    tau_out = dt_out * sqrt(1.0 - beta_out**2)
-    tau_in = dt_in * sqrt(1.0 - beta_in**2)
+    # Using (1-β)(1+β) decomposition for numerical stability at β → 1
+    from marte.relativity import _one_minus_beta_sq
+    tau_out = dt_out * sqrt(_one_minus_beta_sq(beta_out))
+    tau_in = dt_in * sqrt(_one_minus_beta_sq(beta_in))
 
     # Build waypoints: departure, turnaround, arrival
     coord_times = np.array([departure_time, turnaround_time, arrival_time])

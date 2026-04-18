@@ -7,8 +7,6 @@ MARTE epoch convention: t=0 corresponds to J2000.0 (Julian Date 2451545.0).
 """
 
 import hashlib
-import json
-import os
 import re
 import urllib.request
 from dataclasses import dataclass
@@ -17,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from marte.constants import AU, J2000_JD
+from marte.constants import J2000_JD
 
 HORIZONS_URL = "https://ssd.jpl.nasa.gov/api/horizons.api"
 CACHE_DIR = Path.home() / ".marte" / "ephemeris"
@@ -82,26 +80,38 @@ class EphemerisData:
     positions_m: NDArray[np.float64]   # shape (N, 3)
     velocities_m_s: NDArray[np.float64]  # shape (N, 3)
 
+    # Cached splines — built on first use, not on every call
+    _pos_splines: list | None = None
+    _vel_splines: list | None = None
+
+    def _build_pos_splines(self) -> list:
+        from scipy.interpolate import CubicSpline
+        splines = [CubicSpline(self.times_s, self.positions_m[:, i]) for i in range(3)]
+        object.__setattr__(self, "_pos_splines", splines)
+        return splines
+
+    def _build_vel_splines(self) -> list:
+        from scipy.interpolate import CubicSpline
+        splines = [CubicSpline(self.times_s, self.velocities_m_s[:, i]) for i in range(3)]
+        object.__setattr__(self, "_vel_splines", splines)
+        return splines
+
     def position(self, t_s: float) -> NDArray[np.float64]:
         """Interpolate position at MARTE time t_s (seconds since J2000.0).
 
-        Uses cubic spline interpolation per component.
+        Uses cubic spline interpolation per component. Splines are cached
+        after first construction.
         """
-        from scipy.interpolate import CubicSpline
-        result = np.zeros(3)
-        for i in range(3):
-            cs = CubicSpline(self.times_s, self.positions_m[:, i])
-            result[i] = float(cs(t_s))
-        return result
+        splines = self._pos_splines or self._build_pos_splines()
+        return np.array([float(s(t_s)) for s in splines])
 
     def velocity(self, t_s: float) -> NDArray[np.float64]:
-        """Interpolate velocity at MARTE time t_s (seconds since J2000.0)."""
-        from scipy.interpolate import CubicSpline
-        result = np.zeros(3)
-        for i in range(3):
-            cs = CubicSpline(self.times_s, self.velocities_m_s[:, i])
-            result[i] = float(cs(t_s))
-        return result
+        """Interpolate velocity at MARTE time t_s (seconds since J2000.0).
+
+        Splines are cached after first construction.
+        """
+        splines = self._vel_splines or self._build_vel_splines()
+        return np.array([float(s(t_s)) for s in splines])
 
 
 def _parse_horizons_vectors(text: str) -> tuple[list[float], list[list[float]], list[list[float]]]:

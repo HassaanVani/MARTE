@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from marte.constants import STANDARD_GRAVITY, YEAR
+from marte.constants import YEAR
 from marte.solver import TrajectoryModel, solve_trajectory
 
 

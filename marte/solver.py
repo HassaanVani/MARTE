@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from math import acos, atanh, atan2, sqrt
+from math import acos, atan2, atanh, sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -103,7 +103,7 @@ def solve_trajectory(
     gr_corrections: bool = False,
     compute_perturbation: bool = False,
     target: str = "earth",
-    g_tolerance: "GToleranceProfile | None" = None,
+    g_tolerance: GToleranceProfile | None = None,
 ) -> TrajectorySolution:
     """Solve for the trajectory matching departure, arrival, and proper time constraints.
 

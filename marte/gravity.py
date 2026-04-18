@@ -18,7 +18,6 @@ from marte.constants import (
     M_SATURN,
     SATURN_ORBITAL_ANGULAR_VEL,
     SATURN_ORBITAL_RADIUS,
-    STANDARD_GRAVITY,
 )
 from marte.trajectory import Worldline
 

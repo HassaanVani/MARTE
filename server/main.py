@@ -8,12 +8,12 @@ from fastapi.responses import PlainTextResponse, Response
 from marte.constants import AU, SPEED_OF_LIGHT, STANDARD_GRAVITY, YEAR
 from marte.export import export_csv, export_json
 from marte.optimization import compute_pareto_front
-from marte.sweep import sweep_1d, sweep_2d
 from marte.orbital import earth_position
 from marte.propulsion import compute_fuel_budget
 from marte.relativity import lorentz_factor
 from marte.solver import TrajectoryModel, TrajectorySolution, solve_trajectory
 from marte.solver_v2 import find_all_solutions
+from marte.sweep import sweep_1d, sweep_2d
 from marte.targets import TARGETS, target_position
 
 from .schemas import (
@@ -191,7 +191,10 @@ def solve(req: SolveRequest) -> SolveResponse:
     # Sample Earth trajectory
     n_samples = 100
     t_samples = np.linspace(t0_s, tf_s, n_samples)
-    earth_positions = [earth_position(t, elliptical=elliptical, earth_model=earth_model) for t in t_samples]
+    earth_positions = [
+        earth_position(t, elliptical=elliptical, earth_model=earth_model)
+        for t in t_samples
+    ]
 
     r_e0 = earth_position(t0_s, elliptical=elliptical, earth_model=earth_model)
     r_ef = earth_position(tf_s, elliptical=elliptical, earth_model=earth_model)

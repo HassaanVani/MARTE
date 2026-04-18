@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from math import sqrt
 
 import numpy as np
-from numpy.typing import NDArray
 
 from marte.constants import (
     GM_SUN,

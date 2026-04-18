@@ -109,7 +109,10 @@ def build_jerk_limited_phase(
     start_coord_time: float,
     start_proper_time: float,
     start_rapidity: float,
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
+) -> tuple[
+    NDArray[np.float64], NDArray[np.float64],
+    NDArray[np.float64], NDArray[np.float64], float,
+]:
     """Build one phase with variable acceleration via numerical integration.
 
     Integrates the acceleration schedule using the trapezoidal rule on rapidity:
