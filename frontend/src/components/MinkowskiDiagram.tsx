@@ -23,7 +23,7 @@ const LAYOUT_BASE: Partial<Plotly.Layout> = {
     color: "#a1a1aa",
   },
   yaxis: {
-    title: { text: "ct (light-years)" },
+    title: { text: "t (years)" },
     gridcolor: "#27272a",
     zerolinecolor: "#3f3f46",
     color: "#a1a1aa",
@@ -66,14 +66,17 @@ export function MinkowskiDiagram({
     });
     const earthCt = earth.trajectory_times_years;
 
-    const tMax = worldline.coord_times_years[worldline.coord_times_years.length - 1]!;
-    const xMax = Math.max(...shipX.map(Math.abs), 2);
-    const coneRange = Math.max(tMax, xMax) * 1.2;
+    const xMax = Math.max(...shipX.map(Math.abs), 2) * 1.2;
+
+    // c ≈ 63,241 AU/year. Light cone: t = |x| / c.
+    // At trajectory scales (~AU) the cone is nearly vertical.
+    const C_AU_PER_YEAR = 63241.077;
+    const lcT = xMax / C_AU_PER_YEAR;  // time for light to cross the spatial range
 
     const result: Plotly.Data[] = [
       {
-        x: [-coneRange, 0, coneRange],
-        y: [coneRange, 0, coneRange],
+        x: [-xMax, 0, xMax],
+        y: [lcT, 0, lcT],
         mode: "lines",
         line: { color: "#fbbf24", width: 1, dash: "dash" },
         name: "Light cone",

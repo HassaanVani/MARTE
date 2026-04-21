@@ -111,12 +111,16 @@ def plot_minkowski_diagram(solution: TrajectorySolution) -> Figure:
     )
 
     # Light cones at departure
-    t_range = (tf - t0) / YEAR
+    # Slope in these units: dt/dx = 1/c where c ≈ 63,241 AU/year.
+    # Derive the x-extent from the data so the cone stays within the visible region.
     c_au_per_year = SPEED_OF_LIGHT * YEAR / AU
-    lc_t = np.array([0, t_range])
-    ax.plot(lc_t * c_au_per_year, lc_t, "y--", alpha=0.5, linewidth=1)
+    all_x = np.concatenate([ship_x, earth_signed / AU])
+    x_max = max(abs(all_x.min()), abs(all_x.max()), 1.0) * 1.2
+    lc_x = np.array([0, x_max])
+    lc_t_from_x = lc_x / c_au_per_year  # t = x / c
+    ax.plot(lc_x, lc_t_from_x, "y--", alpha=0.5, linewidth=1)
     ax.plot(
-        -lc_t * c_au_per_year, lc_t,
+        -lc_x, lc_t_from_x,
         "y--", alpha=0.5, linewidth=1, label="Light cone",
     )
 
