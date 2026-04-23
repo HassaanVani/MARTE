@@ -90,6 +90,9 @@ function determinePhaseV2(
 /** Seconds of light delay per AU */
 const LIGHT_SECONDS_PER_AU = 499.0;
 
+/** Speed of light in m/s */
+const C = 299_792_458;
+
 export function useWorldlineInterpolation(
   response: SolveResponse | null,
   progress: number,
@@ -168,6 +171,38 @@ export function useWorldlineInterpolation(
     const apparentTime = coordTime - lightDelayYears;
     const earthApparentPositionAU = interpolateEarthPosition(earth, apparentTime);
 
+    // --- Derived relativistic quantities ---
+
+    // Doppler factors: exact relativistic formula
+    // Forward (source approaching): D = sqrt((1+β)/(1-β))
+    // Aft (source receding): D = sqrt((1-β)/(1+β))
+    const betaClamped = Math.max(0, Math.min(beta, 0.99999));
+    const dopplerForward = Math.sqrt((1 + betaClamped) / (1 - betaClamped));
+    const dopplerAft = Math.sqrt((1 - betaClamped) / (1 + betaClamped));
+
+    // Proper acceleration: non-zero only during thrust phases
+    const properAcceleration =
+      phase === "ACCELERATING" || phase === "DECELERATING"
+        ? (solution.proper_acceleration_m_s2 ?? 0)
+        : 0;
+
+    // Relativistic kinetic energy: (γ-1)mc²
+    const massKg = response.inputs.mass_kg;
+    const energyJoules = (gamma - 1) * massKg * C * C;
+
+    // Rapidity: φ = atanh(β)
+    const rapidity = Math.atanh(betaClamped);
+
+    // Mission fraction and turnaround proximity
+    const missionFraction = progress;
+    const turnaroundTimeYears = solution.turnaround_time_years;
+    const missionDuration = tEnd - tStart;
+    const turnaroundFrac = missionDuration > 0
+      ? (turnaroundTimeYears - tStart) / missionDuration
+      : 0.5;
+    // How close we are to turnaround (0 = far away, 1 = at turnaround)
+    const turnaroundProximity = Math.max(0, 1 - Math.abs(progress - turnaroundFrac) / 0.05);
+
     return {
       coordTime,
       properTime,
@@ -180,6 +215,13 @@ export function useWorldlineInterpolation(
       earthPositionAU,
       earthApparentPositionAU,
       lightDelaySeconds,
+      dopplerForward,
+      dopplerAft,
+      properAcceleration,
+      energyJoules,
+      rapidity,
+      missionFraction,
+      turnaroundProximity,
     };
   }, [response, progress]);
 }

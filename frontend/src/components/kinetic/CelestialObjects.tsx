@@ -1,3 +1,4 @@
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -16,13 +17,11 @@ function EngineGlow({ interpolated }: Props) {
   useFrame(() => {
     if (!interpolated || !meshRef.current || !lightRef.current) return;
 
-    // Engine fires opposite to velocity direction (behind the ship)
     const vDir = interpolated.velocityDirection;
     const isThrusting =
       interpolated.phase === "ACCELERATING" || interpolated.phase === "DECELERATING";
     const intensity = isThrusting ? 0.5 + interpolated.beta * 2.0 : 0;
 
-    // Position behind ship (ship is at origin in kinetic frame)
     meshRef.current.position.set(-vDir[0] * 0.5, -vDir[1] * 0.5, -vDir[2] * 0.5);
     meshRef.current.scale.setScalar(intensity > 0 ? 0.15 + intensity * 0.2 : 0.001);
 
@@ -57,7 +56,6 @@ function Sun({ interpolated }: Props) {
       -shipPos[1] * AU_SCALE,
       -shipPos[2] * AU_SCALE,
     );
-    // Subtle pulse
     if (glowRef.current) {
       const pulse = 1.0 + Math.sin(clock.getElapsedTime() * 2) * 0.05;
       glowRef.current.scale.setScalar(pulse);
@@ -89,6 +87,34 @@ function Sun({ interpolated }: Props) {
       </mesh>
       <pointLight intensity={8} color="#fbbf24" distance={300} decay={1} />
     </group>
+  );
+}
+
+/** Faint ring showing Earth's orbital path around the Sun */
+function OrbitTrace({ interpolated }: Props) {
+  const ringRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (!interpolated || !ringRef.current) return;
+    const shipPos = interpolated.positionAU;
+    // Ring is at the Sun's position (origin in SSBIF → -shipPos in kinetic frame)
+    ringRef.current.position.set(
+      -shipPos[0] * AU_SCALE,
+      -shipPos[1] * AU_SCALE,
+      -shipPos[2] * AU_SCALE,
+    );
+  });
+
+  return (
+    <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[AU_SCALE * 0.98, AU_SCALE * 1.02, 128]} />
+      <meshBasicMaterial
+        color="#3b82f6"
+        transparent
+        opacity={0.08}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
   );
 }
 
@@ -126,6 +152,28 @@ function Earth({ interpolated }: Props) {
           side={THREE.BackSide}
         />
       </mesh>
+      {/* Label */}
+      <Html
+        center
+        distanceFactor={15}
+        style={{ pointerEvents: "none", userSelect: "none" }}
+      >
+        <div style={{
+          color: "#60a5fa",
+          fontSize: "9px",
+          fontFamily: "'JetBrains Mono', monospace",
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          whiteSpace: "nowrap",
+          textShadow: "0 0 4px rgba(59,130,246,0.5)",
+          marginTop: "-28px",
+        }}>
+          EARTH
+          <span style={{ opacity: 0.5, marginLeft: "6px" }}>
+            {interpolated ? `${interpolated.distanceToEarth.toFixed(2)} AU` : ""}
+          </span>
+        </div>
+      </Html>
     </group>
   );
 }
@@ -163,14 +211,12 @@ function EarthGhost({ interpolated }: Props) {
     const apparentPos = interpolated.earthApparentPositionAU;
     const actualPos = interpolated.earthPositionAU;
 
-    // Ghost position (light-delayed Earth)
     groupRef.current.position.set(
       (apparentPos[0] - shipPos[0]) * AU_SCALE,
       (apparentPos[1] - shipPos[1]) * AU_SCALE,
       (apparentPos[2] - shipPos[2]) * AU_SCALE,
     );
 
-    // Dashed line from actual to ghost
     const geom = lineObjRef.current.geometry as THREE.BufferGeometry;
     const positions = geom.attributes.position;
     if (positions) {
@@ -204,6 +250,29 @@ function EarthGhost({ interpolated }: Props) {
             opacity={0.25}
           />
         </mesh>
+        {/* TARGET label */}
+        <Html
+          center
+          distanceFactor={15}
+          style={{ pointerEvents: "none", userSelect: "none" }}
+        >
+          <div style={{
+            color: "#f59e0b",
+            fontSize: "9px",
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+            textShadow: "0 0 6px rgba(245,158,11,0.4)",
+            marginTop: "-24px",
+            textAlign: "center",
+          }}>
+            ◇ TARGET
+            <div style={{ fontSize: "8px", color: "#f59e0b80", marginTop: "1px" }}>
+              AIM HERE
+            </div>
+          </div>
+        </Html>
       </group>
       <primitive object={lineObj} />
     </>
@@ -214,6 +283,7 @@ export function CelestialObjects({ interpolated }: Props) {
   return (
     <>
       <Sun interpolated={interpolated} />
+      <OrbitTrace interpolated={interpolated} />
       <Earth interpolated={interpolated} />
       <EarthGhost interpolated={interpolated} />
       <EngineGlow interpolated={interpolated} />

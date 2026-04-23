@@ -229,4 +229,18 @@ export interface InterpolatedState {
   earthPositionAU: [number, number, number];
   earthApparentPositionAU: [number, number, number];
   lightDelaySeconds: number;
+  /** Doppler factor for light arriving from forward (θ=0): D = sqrt((1+β)/(1-β)) */
+  dopplerForward: number;
+  /** Doppler factor for light arriving from aft (θ=π): D = sqrt((1-β)/(1+β)) */
+  dopplerAft: number;
+  /** Current proper acceleration in m/s² (0 during coasting) */
+  properAcceleration: number;
+  /** Relativistic kinetic energy (γ-1)mc² in joules */
+  energyJoules: number;
+  /** Rapidity φ = atanh(β) */
+  rapidity: number;
+  /** Fraction of total mission elapsed (0..1), used for turnaround proximity warnings */
+  missionFraction: number;
+  /** Turnaround progress fraction (0..1) — how close to turnaround point */
+  turnaroundProximity: number;
 }

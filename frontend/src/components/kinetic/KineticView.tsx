@@ -1,14 +1,17 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
+import type { AnimationControls } from "../../hooks/useAnimationState";
 import type { InterpolatedState, SolveResponse } from "../../types";
 import { CelestialObjects } from "./CelestialObjects";
 import { CockpitHUD } from "./CockpitHUD";
+import { CockpitTimeline } from "./CockpitTimeline";
 import { RelativisticStarfield } from "./RelativisticStarfield";
 
 interface Props {
   response: SolveResponse;
   interpolated: InterpolatedState | null;
+  animation: AnimationControls;
 }
 
 function CameraController({
@@ -29,10 +32,8 @@ function CameraController({
       interpolated.velocityDirection[2],
     ).normalize();
 
-    // Create a look-at quaternion for the velocity direction
     const lookAtMatrix = new THREE.Matrix4();
     const up = new THREE.Vector3(0, 0, 1);
-    // If velocity is nearly parallel to up, use a different up vector
     if (Math.abs(dir.dot(up)) > 0.99) {
       up.set(0, 1, 0);
     }
@@ -43,7 +44,6 @@ function CameraController({
       currentQuaternion.current.copy(targetQuaternion.current);
       initialized.current = true;
     } else {
-      // Smooth slerp to prevent snapping at turnaround
       currentQuaternion.current.slerp(targetQuaternion.current, 0.05);
     }
 
@@ -64,7 +64,7 @@ function KineticScene({ interpolated }: { interpolated: InterpolatedState | null
   );
 }
 
-export function KineticView({ interpolated }: Props) {
+export function KineticView({ interpolated, animation }: Props) {
   return (
     <div className="relative h-full w-full">
       <Canvas
@@ -74,6 +74,7 @@ export function KineticView({ interpolated }: Props) {
         <KineticScene interpolated={interpolated} />
       </Canvas>
       <CockpitHUD interpolated={interpolated} />
+      <CockpitTimeline animation={animation} interpolated={interpolated} />
     </div>
   );
 }

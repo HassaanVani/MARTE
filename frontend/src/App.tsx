@@ -264,6 +264,7 @@ export default function App() {
               <KineticView
                 response={activeResponse}
                 interpolated={interpolated}
+                animation={animation}
               />
             )}
           </div>
