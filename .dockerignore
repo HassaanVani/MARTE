@@ -1,0 +1,13 @@
+.venv/
+.git/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+frontend/
+tests/
+scripts/
+*.md
+*.lock
+.gitignore
+.python-version
+.DS_Store
