@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { InterpolatedState } from "../../types";
+import { GhostEarth, RealisticEarth, RealisticSun } from "../celestial/Bodies";
 
 interface Props {
   interpolated: InterpolatedState | null;
@@ -46,9 +47,8 @@ function EngineGlow({ interpolated }: Props) {
 
 function Sun({ interpolated }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (!interpolated || !groupRef.current) return;
     const shipPos = interpolated.positionAU;
     groupRef.current.position.set(
@@ -56,36 +56,11 @@ function Sun({ interpolated }: Props) {
       -shipPos[1] * AU_SCALE,
       -shipPos[2] * AU_SCALE,
     );
-    if (glowRef.current) {
-      const pulse = 1.0 + Math.sin(clock.getElapsedTime() * 2) * 0.05;
-      glowRef.current.scale.setScalar(pulse);
-    }
   });
-
-  const sunMat = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#fbbf24"),
-      }),
-    [],
-  );
 
   return (
     <group ref={groupRef}>
-      <mesh material={sunMat}>
-        <sphereGeometry args={[0.6, 32, 32]} />
-      </mesh>
-      {/* Glow halo */}
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[1.2, 32, 32]} />
-        <meshBasicMaterial
-          color="#fbbf24"
-          transparent
-          opacity={0.15}
-          side={THREE.BackSide}
-        />
-      </mesh>
-      <pointLight intensity={8} color="#fbbf24" distance={300} decay={1} />
+      <RealisticSun radius={0.6} />
     </group>
   );
 }
@@ -97,7 +72,6 @@ function OrbitTrace({ interpolated }: Props) {
   useFrame(() => {
     if (!interpolated || !ringRef.current) return;
     const shipPos = interpolated.positionAU;
-    // Ring is at the Sun's position (origin in SSBIF → -shipPos in kinetic frame)
     ringRef.current.position.set(
       -shipPos[0] * AU_SCALE,
       -shipPos[1] * AU_SCALE,
@@ -134,24 +108,7 @@ function Earth({ interpolated }: Props) {
 
   return (
     <group ref={groupRef}>
-      <mesh>
-        <sphereGeometry args={[0.2, 24, 24]} />
-        <meshStandardMaterial
-          color="#4488ff"
-          emissive="#2244aa"
-          emissiveIntensity={0.8}
-        />
-      </mesh>
-      {/* Atmosphere glow */}
-      <mesh>
-        <sphereGeometry args={[0.28, 24, 24]} />
-        <meshBasicMaterial
-          color="#6699ff"
-          transparent
-          opacity={0.12}
-          side={THREE.BackSide}
-        />
-      </mesh>
+      <RealisticEarth radius={0.2} />
       {/* Label */}
       <Html
         center
@@ -178,7 +135,7 @@ function Earth({ interpolated }: Props) {
   );
 }
 
-function EarthGhost({ interpolated }: Props) {
+function EarthGhostWithLabel({ interpolated }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const lineObjRef = useRef<THREE.Line | null>(null);
 
@@ -240,16 +197,7 @@ function EarthGhost({ interpolated }: Props) {
   return (
     <>
       <group ref={groupRef}>
-        {/* Ghost Earth: wireframe, semi-transparent */}
-        <mesh>
-          <sphereGeometry args={[0.18, 16, 16]} />
-          <meshBasicMaterial
-            color="#6699ff"
-            wireframe
-            transparent
-            opacity={0.25}
-          />
-        </mesh>
+        <GhostEarth radius={0.18} />
         {/* TARGET label */}
         <Html
           center
@@ -285,7 +233,7 @@ export function CelestialObjects({ interpolated }: Props) {
       <Sun interpolated={interpolated} />
       <OrbitTrace interpolated={interpolated} />
       <Earth interpolated={interpolated} />
-      <EarthGhost interpolated={interpolated} />
+      <EarthGhostWithLabel interpolated={interpolated} />
       <EngineGlow interpolated={interpolated} />
     </>
   );

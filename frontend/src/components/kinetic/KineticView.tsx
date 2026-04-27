@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { Suspense, useRef } from "react";
 import * as THREE from "three";
 import type { AnimationControls } from "../../hooks/useAnimationState";
 import type { InterpolatedState, SolveResponse } from "../../types";
@@ -71,7 +71,9 @@ export function KineticView({ interpolated, animation }: Props) {
         camera={{ fov: 75, near: 0.01, far: 2000, position: [0, 0, 0] }}
         style={{ background: "#000000" }}
       >
-        <KineticScene interpolated={interpolated} />
+        <Suspense fallback={null}>
+          <KineticScene interpolated={interpolated} />
+        </Suspense>
       </Canvas>
       <CockpitHUD interpolated={interpolated} />
       <CockpitTimeline animation={animation} interpolated={interpolated} />

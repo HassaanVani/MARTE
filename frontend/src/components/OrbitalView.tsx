@@ -1,8 +1,9 @@
 import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { EarthData, InterpolatedState, TargetTrajectoryData, WorldlineData } from "../types";
+import { RealisticEarth, RealisticSun } from "./celestial/Bodies";
 
 interface Props {
   worldline: WorldlineData;
@@ -100,11 +101,11 @@ function ShipMarker({ interpolated }: { interpolated: InterpolatedState }) {
 }
 
 function EarthMarker({ interpolated }: { interpolated: InterpolatedState }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
-    if (meshRef.current) {
-      meshRef.current.position.set(
+    if (groupRef.current) {
+      groupRef.current.position.set(
         interpolated.earthPositionAU[0],
         interpolated.earthPositionAU[1],
         interpolated.earthPositionAU[2],
@@ -113,14 +114,9 @@ function EarthMarker({ interpolated }: { interpolated: InterpolatedState }) {
   });
 
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[0.025, 16, 16]} />
-      <meshStandardMaterial
-        color="#3b82f6"
-        emissive="#3b82f6"
-        emissiveIntensity={1}
-      />
-    </mesh>
+    <group ref={groupRef}>
+      <RealisticEarth radius={0.03} />
+    </group>
   );
 }
 
@@ -141,7 +137,6 @@ function Scene({ worldline, earth, interpolated, targetTrajectory }: Props) {
     ? TARGET_COLORS[targetTrajectory.name] ?? "#a855f7"
     : null;
 
-  // Camera distance depends on max orbit radius
   const maxRadius = targetTrajectory
     ? Math.max(1, targetTrajectory.orbit_radius_au)
     : 1;
@@ -149,17 +144,11 @@ function Scene({ worldline, earth, interpolated, targetTrajectory }: Props) {
   return (
     <>
       <ambientLight intensity={0.3} />
-      <pointLight position={[0, 0, 0]} intensity={2} color="#fbbf24" />
 
-      {/* Sun */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.05, 32, 32]} />
-        <meshStandardMaterial
-          color="#fbbf24"
-          emissive="#fbbf24"
-          emissiveIntensity={2}
-        />
-      </mesh>
+      {/* Sun at origin */}
+      <group position={[0, 0, 0]}>
+        <RealisticSun radius={0.06} />
+      </group>
 
       {/* Grid on ecliptic */}
       <gridHelper
@@ -224,12 +213,14 @@ export function OrbitalView({ worldline, earth, interpolated, targetTrajectory }
       camera={{ position: [0, 0, 3], fov: 50, near: 0.01, far: 100 }}
       style={{ background: "#09090b" }}
     >
-      <Scene
-        worldline={worldline}
-        earth={earth}
-        interpolated={interpolated}
-        targetTrajectory={targetTrajectory}
-      />
+      <Suspense fallback={null}>
+        <Scene
+          worldline={worldline}
+          earth={earth}
+          interpolated={interpolated}
+          targetTrajectory={targetTrajectory}
+        />
+      </Suspense>
     </Canvas>
   );
 }
