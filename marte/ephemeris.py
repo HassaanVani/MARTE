@@ -231,11 +231,17 @@ class HorizonsClient:
             "CSV_FORMAT": "'NO'",
         }
 
-        query = "&".join(f"{k}={v}" for k, v in params.items())
+        import urllib.parse
+        import ssl
+        
+        query = urllib.parse.urlencode(params)
         url = f"{HORIZONS_URL}?{query}"
 
         try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(url, timeout=30, context=ctx) as resp:
                 text = resp.read().decode("utf-8")
         except Exception as e:
             raise ConnectionError(f"Failed to fetch from JPL Horizons: {e}") from e
