@@ -7,9 +7,10 @@ interface Props {
 }
 
 const SPEEDS = [1, 2, 5, 10];
+const DURATIONS = [5, 10, 20, 60]; // in seconds
 
 export function TimelineControls({ animation, interpolated }: Props) {
-  const { progress, playing, speed, play, pause, seek, setSpeed } = animation;
+  const { progress, playing, speed, durationMs, play, pause, seek, setSpeed, setDurationMs } = animation;
 
   return (
     <div className="timeline-bar flex items-center gap-4 border-t border-border bg-surface px-5 py-2.5">
@@ -44,6 +45,24 @@ export function TimelineControls({ animation, interpolated }: Props) {
             }`}
           >
             {s}x
+          </button>
+        ))}
+      </div>
+
+      {/* Duration selector */}
+      <div className="flex gap-0.5 border-l border-border pl-4">
+        <span className="text-text-dim text-[9px] uppercase tracking-wider self-center mr-2">Duration</span>
+        {DURATIONS.map((d) => (
+          <button
+            key={d}
+            onClick={() => setDurationMs(d * 1000)}
+            className={`px-2 py-1 text-[11px] font-bold transition-colors ${
+              durationMs === d * 1000
+                ? "bg-amber text-bg"
+                : "text-text-dim hover:text-amber border border-transparent hover:border-amber/30"
+            }`}
+          >
+            {d}s
           </button>
         ))}
       </div>

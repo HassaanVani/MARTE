@@ -171,6 +171,22 @@ export function useWorldlineInterpolation(
     const apparentTime = coordTime - lightDelayYears;
     const earthApparentPositionAU = interpolateEarthPosition(earth, apparentTime);
 
+    // Target position
+    let targetPositionAU = earthPositionAU;
+    let targetApparentPositionAU = earthApparentPositionAU;
+    if (response.target_trajectory) {
+       // Cast to EarthData since the structure is identical
+       const targetTraj = response.target_trajectory as unknown as EarthData;
+       targetPositionAU = interpolateEarthPosition(targetTraj, coordTime);
+       
+       const tdx = positionAU[0] - targetPositionAU[0];
+       const tdy = positionAU[1] - targetPositionAU[1];
+       const tdz = positionAU[2] - targetPositionAU[2];
+       const distanceToTarget = Math.sqrt(tdx * tdx + tdy * tdy + tdz * tdz);
+       const targetDelayYears = (distanceToTarget * LIGHT_SECONDS_PER_AU) / SECONDS_PER_YEAR;
+       targetApparentPositionAU = interpolateEarthPosition(targetTraj, coordTime - targetDelayYears);
+    }
+
     // --- Derived relativistic quantities ---
 
     // Doppler factors: exact relativistic formula
@@ -222,6 +238,8 @@ export function useWorldlineInterpolation(
       rapidity,
       missionFraction,
       turnaroundProximity,
+      targetPositionAU,
+      targetApparentPositionAU,
     };
   }, [response, progress]);
 }

@@ -38,6 +38,17 @@ const MODES: { value: ViewMode; label: string; icon: ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    value: "calculus",
+    label: "Calculus",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.8">
+        <path d="M3,1 C5,1 5,6 3,6 C5,6 5,11 3,11" strokeLinecap="round" />
+        <line x1="6" y1="3" x2="10" y2="3" />
+        <line x1="6" y1="9" x2="10" y2="9" />
+      </svg>
+    ),
+  },
 ];
 
 export function ModeToggle({ mode, onChange }: Props) {

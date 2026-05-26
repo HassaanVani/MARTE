@@ -51,16 +51,89 @@ function Sun({ interpolated }: Props) {
   useFrame(() => {
     if (!interpolated || !groupRef.current) return;
     const shipPos = interpolated.positionAU;
-    groupRef.current.position.set(
-      -shipPos[0] * AU_SCALE,
-      -shipPos[1] * AU_SCALE,
-      -shipPos[2] * AU_SCALE,
-    );
+    
+    let dx = -shipPos[0] * AU_SCALE;
+    let dy = -shipPos[1] * AU_SCALE;
+    let dz = -shipPos[2] * AU_SCALE;
+    
+    // Prevent clipping inside Sun (radius ~0.6)
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < 1.0) {
+      if (dist < 0.0001) { dz = -1.0; }
+      else { const scale = 1.0 / dist; dx *= scale; dy *= scale; dz *= scale; }
+    }
+    
+    groupRef.current.position.set(dx, dy, dz);
   });
 
   return (
     <group ref={groupRef}>
       <RealisticSun radius={0.6} />
+    </group>
+  );
+}
+
+const PLANETS = [
+  { name: "Mercury", radiusAU: 0.39, size: 0.08, color: "#8c8c8c", period: 0.24 },
+  { name: "Venus", radiusAU: 0.72, size: 0.19, color: "#e3bb76", period: 0.62 },
+  { name: "Mars", radiusAU: 1.52, size: 0.1, color: "#c1440e", period: 1.88 },
+  { name: "Jupiter", radiusAU: 5.20, size: 0.5, color: "#d39c7e", period: 11.86 },
+  { name: "Saturn", radiusAU: 9.54, size: 0.4, color: "#ead6b8", period: 29.46 },
+  { name: "Uranus", radiusAU: 19.2, size: 0.25, color: "#4b70dd", period: 84.01 },
+  { name: "Neptune", radiusAU: 30.06, size: 0.24, color: "#415bb3", period: 164.8 },
+];
+
+function SolarSystemPlanets({ interpolated }: Props) {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame(() => {
+    if (!interpolated || !groupRef.current) return;
+    const shipPos = interpolated.positionAU;
+    const t = interpolated.coordTime; // in years
+    
+    // Sun position
+    let dx = -shipPos[0] * AU_SCALE;
+    let dy = -shipPos[1] * AU_SCALE;
+    let dz = -shipPos[2] * AU_SCALE;
+    
+    groupRef.current.position.set(dx, dy, dz);
+    
+    // Update planets
+    groupRef.current.children.forEach((child) => {
+      if (child.userData.planetIndex !== undefined) {
+         const idx = child.userData.planetIndex as number;
+         const p = PLANETS[idx];
+         if (p) {
+           const theta = (t / p.period) * Math.PI * 2 + (idx * 2.3);
+           child.position.set(
+             p.radiusAU * Math.cos(theta) * AU_SCALE,
+             p.radiusAU * Math.sin(theta) * AU_SCALE,
+             0
+           );
+         }
+      }
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {PLANETS.map((p, i) => (
+        <mesh key={p.name} userData={{ planetIndex: i }}>
+          <sphereGeometry args={[p.size, 32, 32]} />
+          <meshStandardMaterial color={p.color} roughness={0.7} />
+          {p.name === "Saturn" && (
+             <mesh rotation={[Math.PI / 2 + 0.2, 0, 0]}>
+               <ringGeometry args={[p.size * 1.4, p.size * 2.2, 64]} />
+               <meshBasicMaterial color="#d8c5a2" transparent opacity={0.6} side={THREE.DoubleSide} />
+             </mesh>
+          )}
+          <Html center distanceFactor={15} style={{ pointerEvents: "none", userSelect: "none" }}>
+            <div style={{ color: p.color, fontSize: "8px", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.15em", textTransform: "uppercase", whiteSpace: "nowrap", opacity: 0.6, marginTop: "-20px" }}>
+              {p.name}
+            </div>
+          </Html>
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -99,11 +172,19 @@ function Earth({ interpolated }: Props) {
     if (!interpolated || !groupRef.current) return;
     const shipPos = interpolated.positionAU;
     const earthPos = interpolated.earthPositionAU;
-    groupRef.current.position.set(
-      (earthPos[0] - shipPos[0]) * AU_SCALE,
-      (earthPos[1] - shipPos[1]) * AU_SCALE,
-      (earthPos[2] - shipPos[2]) * AU_SCALE,
-    );
+    
+    let dx = (earthPos[0] - shipPos[0]) * AU_SCALE;
+    let dy = (earthPos[1] - shipPos[1]) * AU_SCALE;
+    let dz = (earthPos[2] - shipPos[2]) * AU_SCALE;
+
+    // Prevent clipping inside Earth (radius 0.2)
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < 0.4) {
+      if (dist < 0.0001) { dz = -0.4; }
+      else { const scale = 0.4 / dist; dx *= scale; dy *= scale; dz *= scale; }
+    }
+
+    groupRef.current.position.set(dx, dy, dz);
   });
 
   return (
@@ -135,7 +216,7 @@ function Earth({ interpolated }: Props) {
   );
 }
 
-function EarthGhostWithLabel({ interpolated }: Props) {
+function TargetGhostWithLabel({ interpolated }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const lineObjRef = useRef<THREE.Line | null>(null);
 
@@ -165,14 +246,21 @@ function EarthGhostWithLabel({ interpolated }: Props) {
   useFrame(() => {
     if (!interpolated || !groupRef.current || !lineObjRef.current) return;
     const shipPos = interpolated.positionAU;
-    const apparentPos = interpolated.earthApparentPositionAU;
-    const actualPos = interpolated.earthPositionAU;
+    const apparentPos = interpolated.targetApparentPositionAU;
+    const actualPos = interpolated.targetPositionAU;
 
-    groupRef.current.position.set(
-      (apparentPos[0] - shipPos[0]) * AU_SCALE,
-      (apparentPos[1] - shipPos[1]) * AU_SCALE,
-      (apparentPos[2] - shipPos[2]) * AU_SCALE,
-    );
+    let dxApp = (apparentPos[0] - shipPos[0]) * AU_SCALE;
+    let dyApp = (apparentPos[1] - shipPos[1]) * AU_SCALE;
+    let dzApp = (apparentPos[2] - shipPos[2]) * AU_SCALE;
+
+    // Prevent clipping
+    const distApp = Math.sqrt(dxApp * dxApp + dyApp * dyApp + dzApp * dzApp);
+    if (distApp < 0.4) {
+      if (distApp < 0.0001) { dzApp = -0.4; }
+      else { const scale = 0.4 / distApp; dxApp *= scale; dyApp *= scale; dzApp *= scale; }
+    }
+
+    groupRef.current.position.set(dxApp, dyApp, dzApp);
 
     const geom = lineObjRef.current.geometry as THREE.BufferGeometry;
     const positions = geom.attributes.position;
@@ -195,7 +283,7 @@ function EarthGhostWithLabel({ interpolated }: Props) {
   });
 
   return (
-    <>
+    <group>
       <group ref={groupRef}>
         <GhostEarth radius={0.18} />
         {/* TARGET label */}
@@ -223,7 +311,7 @@ function EarthGhostWithLabel({ interpolated }: Props) {
         </Html>
       </group>
       <primitive object={lineObj} />
-    </>
+    </group>
   );
 }
 
@@ -231,9 +319,10 @@ export function CelestialObjects({ interpolated }: Props) {
   return (
     <>
       <Sun interpolated={interpolated} />
+      <SolarSystemPlanets interpolated={interpolated} />
       <OrbitTrace interpolated={interpolated} />
       <Earth interpolated={interpolated} />
-      <EarthGhostWithLabel interpolated={interpolated} />
+      <TargetGhostWithLabel interpolated={interpolated} />
       <EngineGlow interpolated={interpolated} />
     </>
   );

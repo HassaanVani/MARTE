@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const BASE_DURATION_MS = 10_000; // Full trajectory in 10s at 1x
+const DEFAULT_DURATION_MS = 10_000; // Full trajectory in 10s at 1x
 
 export interface AnimationControls {
   progress: number;
   playing: boolean;
   speed: number;
+  durationMs: number;
   play: () => void;
   pause: () => void;
   seek: (p: number) => void;
   setSpeed: (s: number) => void;
+  setDurationMs: (d: number) => void;
   reset: () => void;
 }
 
@@ -17,10 +19,12 @@ export function useAnimationState(): AnimationControls {
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeedState] = useState(1);
+  const [durationMs, setDurationMsState] = useState(DEFAULT_DURATION_MS);
 
   const progressRef = useRef(0);
   const playingRef = useRef(false);
   const speedRef = useRef(1);
+  const durationRef = useRef(DEFAULT_DURATION_MS);
   const lastFrameRef = useRef(0);
   const rafRef = useRef(0);
 
@@ -29,7 +33,7 @@ export function useAnimationState(): AnimationControls {
 
     if (lastFrameRef.current > 0) {
       const dt = now - lastFrameRef.current;
-      const dp = (dt / BASE_DURATION_MS) * speedRef.current;
+      const dp = (dt / durationRef.current) * speedRef.current;
       const next = Math.min(1, progressRef.current + dp);
       progressRef.current = next;
       setProgress(next);
@@ -76,6 +80,11 @@ export function useAnimationState(): AnimationControls {
     setSpeedState(s);
   }, []);
 
+  const setDurationMs = useCallback((d: number) => {
+    durationRef.current = d;
+    setDurationMsState(d);
+  }, []);
+
   const reset = useCallback(() => {
     pause();
     progressRef.current = 0;
@@ -88,5 +97,5 @@ export function useAnimationState(): AnimationControls {
     };
   }, []);
 
-  return { progress, playing, speed, play, pause, seek, setSpeed, reset };
+  return { progress, playing, speed, durationMs, play, pause, seek, setSpeed, setDurationMs, reset };
 }

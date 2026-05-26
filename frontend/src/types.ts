@@ -142,7 +142,7 @@ export interface SolveResponse {
   perturbation: PerturbationData | null;
 }
 
-export type ViewMode = "observer" | "kinetic" | "planning";
+export type ViewMode = "observer" | "kinetic" | "planning" | "calculus";
 
 // --- Sweep types ---
 
@@ -243,4 +243,6 @@ export interface InterpolatedState {
   missionFraction: number;
   /** Turnaround progress fraction (0..1) — how close to turnaround point */
   turnaroundProximity: number;
+  targetPositionAU: [number, number, number];
+  targetApparentPositionAU: [number, number, number];
 }

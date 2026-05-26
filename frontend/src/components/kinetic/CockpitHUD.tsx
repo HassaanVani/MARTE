@@ -356,6 +356,30 @@ export function CockpitHUD({ interpolated }: Props) {
               ⟳ EXECUTING TURNAROUND
             </div>
           )}
+
+          {/* Quick Nav Controls */}
+          <div className="mt-4 flex justify-end gap-2 pointer-events-auto">
+            <button
+              onClick={() => {
+                const s = interpolated.positionAU;
+                const e = interpolated.earthPositionAU;
+                window.dispatchEvent(new CustomEvent("marte-center-target", { detail: [e[0]-s[0], e[1]-s[1], e[2]-s[2]] }));
+              }}
+              className="px-2 py-1 bg-blue/10 border border-blue/30 text-blue text-[9px] uppercase tracking-wider hover:bg-blue/20 transition-colors"
+            >
+              ⌖ Earth
+            </button>
+            <button
+              onClick={() => {
+                const s = interpolated.positionAU;
+                const e = interpolated.targetApparentPositionAU;
+                window.dispatchEvent(new CustomEvent("marte-center-target", { detail: [e[0]-s[0], e[1]-s[1], e[2]-s[2]] }));
+              }}
+              className="px-2 py-1 bg-amber/10 border border-amber/30 text-amber text-[9px] uppercase tracking-wider hover:bg-amber/20 transition-colors"
+            >
+              ⌖ Target
+            </button>
+          </div>
         </div>
       </div>
 

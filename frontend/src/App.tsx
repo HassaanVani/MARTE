@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { solveTrajectory } from "./api";
+import { CalculusView } from "./components/CalculusView";
 import { EnergyDisplay } from "./components/EnergyDisplay";
 import { ExportPanel } from "./components/ExportPanel";
 import { FuelBudgetPanel } from "./components/FuelBudgetPanel";
@@ -265,6 +266,27 @@ export default function App() {
                 response={activeResponse}
                 interpolated={interpolated}
                 animation={animation}
+              />
+            )}
+          </div>
+        ) : mode === "calculus" ? (
+          /* Calculus mode: mathematical visualization */
+          <div className="relative h-full">
+            {!activeResponse?.solution || !activeResponse.worldline ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <p className="text-text-dim text-sm">
+                    {loading ? "COMPUTING..." : error ?? "Solve a trajectory to visualize the integral"}
+                  </p>
+                  <p className="text-text-dim mt-2 text-xs">
+                    Use constant_acceleration mode for the most interesting γ(τ) curves
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <CalculusView
+                worldline={activeResponse.worldline}
+                solution={activeResponse.solution}
               />
             )}
           </div>

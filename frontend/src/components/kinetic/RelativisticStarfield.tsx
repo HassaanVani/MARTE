@@ -5,8 +5,6 @@ import type { InterpolatedState } from "../../types";
 import {
   starfieldFragmentShader,
   starfieldVertexShader,
-  warpFragmentShader,
-  warpVertexShader,
 } from "./starfieldShader";
 
 interface Props {
@@ -14,8 +12,8 @@ interface Props {
 }
 
 const STAR_COUNT = 20_000;
-const SPHERE_RADIUS = 500;
-const WARP_LINE_COUNT = 600;
+const BOX_SIZE = 20000;
+const AU_SCALE = 10;
 
 /**
  * Generate a star temperature (Kelvin) from a rough Hertzsprung–Russell distribution.
@@ -47,7 +45,6 @@ function tempToBaseColor(temp: number): [number, number, number] {
 
 export function RelativisticStarfield({ interpolated }: Props) {
   const starMatRef = useRef<THREE.ShaderMaterial>(null);
-  const warpMatRef = useRef<THREE.ShaderMaterial>(null);
 
   const starData = useMemo(() => {
     const pos = new Float32Array(STAR_COUNT * 3);
@@ -57,12 +54,10 @@ export function RelativisticStarfield({ interpolated }: Props) {
     const temp = new Float32Array(STAR_COUNT);
 
     for (let i = 0; i < STAR_COUNT; i++) {
-      const theta = Math.acos(2 * Math.random() - 1);
-      const phi = Math.random() * Math.PI * 2;
-
-      pos[i * 3] = SPHERE_RADIUS * Math.sin(theta) * Math.cos(phi);
-      pos[i * 3 + 1] = SPHERE_RADIUS * Math.sin(theta) * Math.sin(phi);
-      pos[i * 3 + 2] = SPHERE_RADIUS * Math.cos(theta);
+      // Randomize stars within the 3D box volume
+      pos[i * 3] = (Math.random() - 0.5) * BOX_SIZE;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * BOX_SIZE;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * BOX_SIZE;
 
       // Star temperature drives both color and the spectral Doppler model
       const starTemp = randomStarTemperature();
@@ -91,36 +86,12 @@ export function RelativisticStarfield({ interpolated }: Props) {
     return { positions: pos, sizes: sz, colors: col, brightness: bright, temperatures: temp };
   }, []);
 
-  const warpData = useMemo(() => {
-    const offsets = new Float32Array(WARP_LINE_COUNT);
-    const speeds = new Float32Array(WARP_LINE_COUNT);
-    const positions = new Float32Array(WARP_LINE_COUNT * 3);
-
-    for (let i = 0; i < WARP_LINE_COUNT; i++) {
-      offsets[i] = Math.random();
-      speeds[i] = 0.3 + Math.random() * 0.7;
-      positions[i * 3] = 0;
-      positions[i * 3 + 1] = 0;
-      positions[i * 3 + 2] = 0;
-    }
-
-    return { offsets, speeds, positions };
-  }, []);
-
   const starUniforms = useMemo(
     () => ({
       uBeta: { value: 0.0 },
       uGamma: { value: 1.0 },
       uVelocityDir: { value: new THREE.Vector3(1, 0, 0) },
-      uTime: { value: 0.0 },
-    }),
-    [],
-  );
-
-  const warpUniforms = useMemo(
-    () => ({
-      uBeta: { value: 0.0 },
-      uVelocityDir: { value: new THREE.Vector3(1, 0, 0) },
+      uShipPosition: { value: new THREE.Vector3(0, 0, 0) },
       uTime: { value: 0.0 },
     }),
     [],
@@ -137,27 +108,25 @@ export function RelativisticStarfield({ interpolated }: Props) {
       u.uBeta!.value = beta;
       u.uGamma!.value = gamma;
       u.uVelocityDir!.value.set(vDir[0], vDir[1], vDir[2]);
-    }
-
-    if (warpMatRef.current) {
-      const u = warpMatRef.current.uniforms;
-      u.uTime!.value += delta;
-      u.uBeta!.value = beta;
-      u.uVelocityDir!.value.set(vDir[0], vDir[1], vDir[2]);
+      const shipPos = interpolated?.positionAU ?? [0, 0, 0];
+      u.uShipPosition!.value.set(shipPos[0] * AU_SCALE, shipPos[1] * AU_SCALE, shipPos[2] * AU_SCALE);
     }
   });
+
+  const starGeometry = useMemo(() => {
+    const geom = new THREE.PlaneGeometry(1, 1);
+    geom.setAttribute("aOffset", new THREE.InstancedBufferAttribute(starData.positions, 3));
+    geom.setAttribute("aSize", new THREE.InstancedBufferAttribute(starData.sizes, 1));
+    geom.setAttribute("aColor", new THREE.InstancedBufferAttribute(starData.colors, 3));
+    geom.setAttribute("aBrightness", new THREE.InstancedBufferAttribute(starData.brightness, 1));
+    geom.setAttribute("aTemperature", new THREE.InstancedBufferAttribute(starData.temperatures, 1));
+    return geom;
+  }, [starData]);
 
   return (
     <>
       {/* Stars */}
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[starData.positions, 3]} />
-          <bufferAttribute attach="attributes-aSize" args={[starData.sizes, 1]} />
-          <bufferAttribute attach="attributes-aColor" args={[starData.colors, 3]} />
-          <bufferAttribute attach="attributes-aBrightness" args={[starData.brightness, 1]} />
-          <bufferAttribute attach="attributes-aTemperature" args={[starData.temperatures, 1]} />
-        </bufferGeometry>
+      <instancedMesh args={[starGeometry, undefined, STAR_COUNT]} frustumCulled={false}>
         <shaderMaterial
           ref={starMatRef}
           vertexShader={starfieldVertexShader}
@@ -166,26 +135,9 @@ export function RelativisticStarfield({ interpolated }: Props) {
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
         />
-      </points>
-
-      {/* Warp speed lines */}
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[warpData.positions, 3]} />
-          <bufferAttribute attach="attributes-aOffset" args={[warpData.offsets, 1]} />
-          <bufferAttribute attach="attributes-aSpeed" args={[warpData.speeds, 1]} />
-        </bufferGeometry>
-        <shaderMaterial
-          ref={warpMatRef}
-          vertexShader={warpVertexShader}
-          fragmentShader={warpFragmentShader}
-          uniforms={warpUniforms}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
+      </instancedMesh>
     </>
   );
 }
