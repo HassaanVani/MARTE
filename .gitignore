@@ -40,3 +40,6 @@ htmlcov/
 # Node / Frontend
 node_modules/
 frontend/dist/
+
+# Presentation README (local only)
+README.md
